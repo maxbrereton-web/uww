@@ -1,0 +1,12 @@
+/* ==========================================================================
+   UWW — Webfonts
+   Brand print face: Fedra Sans Condensed (Typotheque, licensed — not embeddable).
+   Brand-sanctioned WEB substitute (per the UWW style guide, §3 Typography for Web):
+   Open Sans + Open Sans Condensed (Google Fonts, open source).
+   The single Open Sans variable font below carries the weight (wght),
+   width (wdth 75 = "Condensed") and italic axes, so one family covers both
+   the condensed display face and the regular body face.
+   Digital/email fallback per guide: Trebuchet MS (system font).
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wdth,wght@0,75..100,300..800;1,75..100,300..800&display=swap');

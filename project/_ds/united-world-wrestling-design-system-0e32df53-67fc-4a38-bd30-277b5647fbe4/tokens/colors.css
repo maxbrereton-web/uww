@@ -1,0 +1,113 @@
+/* ==========================================================================
+   UWW — Colour tokens
+   Source of truth: UWW Style Guide §1 "The Logo Colour System".
+   The corporate brand runs on ORANGES + DARK BLUE. The two competition
+   sub-brands carry their own palettes (World Championship = BLUES,
+   Continental Championship = BURGUNDIES) and are exposed as event themes.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand primitives — Corporate (Oranges + Dark Blue) ---------------- */
+  --uww-orange:        #F58220; /* Pantone 158C · 245,130,32 — PRIMARY identity orange */
+  --uww-orange-bright: #F7941E; /* 247,148,30 — lighter highlight orange */
+  --uww-orange-deep:   #F15A22; /* 241,90,34  — deep orange, action fills */
+  --uww-orange-burnt:  #ED1C24; /* 237,28,36  — red-orange, hot accent */
+  --uww-ink:           #04003F; /* Pantone 2757C · 4,0,63 — PRIMARY dark blue */
+
+  /* ---- Brand neutrals — warm "stone" greys from the guide ---------------- */
+  --uww-stone:         #9F9D83; /* 159,157,131 */
+  --uww-stone-light:   #D7D6C4; /* 215,214,196 */
+  --uww-cream:         #F3F2EA; /* derived — warm paper tint */
+
+  /* ---- Ink / navy surface ramp (anchored on --uww-ink) ------------------- */
+  --ink-950: #04003F;
+  --ink-900: #0a0750;
+  --ink-800: #16125f;
+  --ink-700: #232073;
+  --ink-600: #34306a;
+
+  /* ---- Cool neutral grey ramp (subtle navy tint) ------------------------- */
+  --gray-0:   #FFFFFF;
+  --gray-50:  #F7F8FA;
+  --gray-100: #EEF0F4;
+  --gray-200: #E0E3EB;
+  --gray-300: #C9CDD9;
+  --gray-400: #9AA0B2;
+  --gray-500: #6C7385;
+  --gray-600: #4B5163;
+  --gray-700: #343A4C;
+  --gray-800: #20243A;
+  --gray-900: #11142A;
+
+  /* ---- Orange tints / shades (interaction states) ------------------------ */
+  --orange-50:  #FEF3E8;
+  --orange-100: #FDE2C6;
+  --orange-200: #FBC78C;
+  --orange-300: #F9A954;
+  --orange-400: #F58220;
+  --orange-500: #EC6E12;
+  --orange-600: #D55A09;
+  --orange-700: #B0490C;
+
+  /* ---- Competition theme — World Championship (Blues) -------------------- */
+  --wc-cyan:    #00AEEF; /* 0,174,239 */
+  --wc-blue:    #0089CF; /* Pantone 3005C · 0,137,207 */
+  --wc-blue-mid:#0066B3; /* 0,102,179 */
+  --wc-indigo:  #221F73; /* 34,31,115 */
+  --wc-deep:    #1B1363; /* 27,19,99 */
+  --wc-navy:    #04003F; /* 4,0,63 */
+
+  /* ---- Competition theme — Continental Championship (Burgundies) --------- */
+  --ct-magenta: #BF245E; /* 191,36,94 */
+  --ct-red:     #AB2A4D; /* Pantone 214C · 171,42,77 */
+  --ct-rose:    #AB2F63; /* 171,47,99 */
+  --ct-wine:    #832047; /* 131,32,71 */
+  --ct-burgundy:#651142; /* 101,17,66 */
+  --ct-plum:    #48062D; /* Pantone 222C · 72,6,45 */
+
+  /* ---- Semantic status --------------------------------------------------- */
+  --color-success:    #1E8A4C;
+  --color-success-bg: #E6F4EC;
+  --color-warning:    #E0A100;
+  --color-warning-bg: #FBF1D6;
+  --color-danger:     #ED1C24;
+  --color-danger-bg:  #FCE6E7;
+  --color-info:       #0089CF;
+  --color-info-bg:    #E0F2FB;
+
+  /* ======================================================================
+     SEMANTIC ALIASES — reference these in product code, not the primitives
+     ====================================================================== */
+  --color-primary:          var(--uww-orange);
+  --color-primary-hover:     #EC6E12;
+  --color-primary-active:    #D55A09;
+  --color-primary-subtle:   var(--orange-50);
+  --color-on-primary:       #FFFFFF;
+
+  --color-action:           var(--uww-orange-deep); /* button fill — white text passes AA-large */
+  --color-action-hover:      #D94E1A;
+  --color-action-active:     #C0440F;
+
+  --color-ink:              var(--uww-ink);           /* headlines on light */
+  --color-text:              #1B1F33;                 /* body copy */
+  --color-text-muted:       var(--gray-500);
+  --color-text-subtle:      var(--gray-400);
+  --color-text-inverse:     #FFFFFF;
+  --color-link:             var(--uww-orange-deep);
+  --color-link-hover:        #C0440F;
+
+  --surface-page:           #FFFFFF;
+  --surface-muted:          var(--gray-50);
+  --surface-card:           #FFFFFF;
+  --surface-sunken:         var(--gray-100);
+  --surface-ink:            var(--uww-ink);           /* dark navy sections */
+  --surface-ink-soft:       var(--ink-800);
+  --surface-cream:          var(--uww-cream);
+
+  --border-subtle:          var(--gray-200);
+  --border-default:         var(--gray-300);
+  --border-strong:          var(--gray-400);
+  --border-on-ink:          rgba(255,255,255,0.16);
+
+  --focus-ring:             0 0 0 3px rgba(245,130,32,0.45);
+}

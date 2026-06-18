@@ -1,0 +1,60 @@
+/* ==========================================================================
+   UWW — Effects: radii, borders, shadows, gradients, motion
+   The athletic brand reads SHARP — tight corner radii, with a pill option
+   for sporty CTAs. Shadows are cool, tinted toward the navy ink.
+   ========================================================================== */
+
+:root {
+  /* ---- Radii ----------------------------------------------------------- */
+  --radius-none:  0;
+  --radius-xs:    2px;
+  --radius-sm:    4px;
+  --radius-md:    6px;
+  --radius-lg:    10px;
+  --radius-xl:    16px;
+  --radius-2xl:   24px;
+  --radius-pill:  999px;
+  --radius-circle:50%;
+
+  /* ---- Borders --------------------------------------------------------- */
+  --border-hairline: 1px;
+  --border-thick:    2px;
+  --border-accent:   3px;  /* orange underline / active markers */
+
+  /* ---- Shadows (navy-tinted) ------------------------------------------- */
+  --shadow-xs:  0 1px 2px rgba(4,0,63,0.06);
+  --shadow-sm:  0 2px 6px rgba(4,0,63,0.08);
+  --shadow-md:  0 6px 16px rgba(4,0,63,0.10);
+  --shadow-lg:  0 14px 34px rgba(4,0,63,0.14);
+  --shadow-xl:  0 28px 60px rgba(4,0,63,0.20);
+  --shadow-card:    0 2px 6px rgba(4,0,63,0.06), 0 12px 28px rgba(4,0,63,0.08);
+  --shadow-focus:   var(--focus-ring);
+
+  /* ---- Brand gradients & backgrounds ----------------------------------- */
+  /* Corporate — "blend between two shapes": navy + orange (guide §1, p7) */
+  --gradient-corporate: linear-gradient(120deg, #04003F 0%, #1B0B4A 42%, #B0490C 86%, #F15A29 100%); /* @kind other */
+  /* World Championship — radial navy → light blue (guide §1, p11) */
+  --gradient-world: radial-gradient(circle at 50% 30%, #0089CF 0%, #0066B3 38%, #1B1363 78%, #04003F 100%); /* @kind other */
+  /* Continental Championship — burgundy gradient (guide §1, p16) */
+  --gradient-continental: radial-gradient(circle at 50% 35%, #AB2F63 0%, #832047 45%, #4A152F 100%); /* @kind other */
+  /* Orange energy wash — subtle hero accent */
+  --gradient-orange: linear-gradient(100deg, #F58220 0%, #ED1C24 100%); /* @kind other */
+
+  /* Photographic overlay — darken background so wrestlers (subject) pop,
+     per guide §2 photography treatment */
+  --overlay-photo: linear-gradient(180deg, rgba(4,0,63,0.05) 0%, rgba(4,0,63,0.55) 60%, rgba(4,0,63,0.88) 100%); /* @kind other */
+
+  /* ---- Motion ---------------------------------------------------------- */
+  --ease-out:   cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --ease-in-out:cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --duration-fast:   120ms; /* @kind other */
+  --duration-base:   200ms; /* @kind other */
+  --duration-slow:   360ms; /* @kind other */
+
+  /* ---- Z-index --------------------------------------------------------- */
+  --z-base:    1; /* @kind other */
+  --z-sticky:  100; /* @kind other */
+  --z-overlay: 1000; /* @kind other */
+  --z-modal:   1100; /* @kind other */
+  --z-toast:   1200; /* @kind other */
+}

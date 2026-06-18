@@ -1,0 +1,82 @@
+/* ==========================================================================
+   UWW — Base element styles + event theme scopes
+   Light, opinionated resets. Sets the brand defaults on the document.
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: var(--surface-page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings default to the condensed athletic display face */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-condensed);
+  font-weight: var(--weight-extrabold);
+  color: var(--color-ink);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+  margin: 0 0 0.5em;
+}
+h1 { font-size: var(--text-6xl); }
+h2 { font-size: var(--text-4xl); }
+h3 { font-size: var(--text-2xl); }
+h4 { font-size: var(--text-xl); letter-spacing: var(--tracking-normal); }
+h5 { font-size: var(--text-lg); }
+h6 { font-size: var(--text-sm); letter-spacing: var(--tracking-eyebrow); }
+
+p { margin: 0 0 1em; text-wrap: pretty; }
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+a:hover { color: var(--color-link-hover); }
+
+strong, b { font-weight: var(--weight-bold); }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+hr { border: 0; border-top: 1px solid var(--border-subtle); margin: var(--space-8) 0; }
+
+::selection { background: var(--uww-orange); color: #fff; }
+
+/* ---- Event theme scopes -------------------------------------------------
+   Wrap a region in .theme-world or .theme-continental to retheme the
+   primary/action colours to the matching competition palette. -------------- */
+.theme-world {
+  --color-primary:       var(--wc-blue);
+  --color-primary-hover: var(--wc-blue-mid);
+  --color-primary-active:var(--wc-deep);
+  --color-action:        var(--wc-blue-mid);
+  --color-action-hover:  var(--wc-deep);
+  --color-link:          var(--wc-blue-mid);
+  --color-link-hover:    var(--wc-deep);
+  --surface-ink:         var(--wc-navy);
+  --focus-ring:          0 0 0 3px rgba(0,137,207,0.45);
+}
+.theme-continental {
+  --color-primary:       var(--ct-magenta);
+  --color-primary-hover: var(--ct-wine);
+  --color-primary-active:var(--ct-burgundy);
+  --color-action:        var(--ct-red);
+  --color-action-hover:  var(--ct-wine);
+  --color-link:          var(--ct-red);
+  --color-link-hover:    var(--ct-wine);
+  --surface-ink:         var(--ct-plum);
+  --focus-ring:          0 0 0 3px rgba(191,36,94,0.45);
+}

@@ -1,0 +1,34 @@
+/* ==========================================================================
+   UWW — Spacing & layout tokens
+   4px base grid.
+   ========================================================================== */
+
+:root {
+  --space-0:   0;
+  --space-1:   2px;
+  --space-2:   4px;
+  --space-3:   8px;
+  --space-4:   12px;
+  --space-5:   16px;
+  --space-6:   20px;
+  --space-7:   24px;
+  --space-8:   32px;
+  --space-9:   40px;
+  --space-10:  48px;
+  --space-11:  64px;
+  --space-12:  80px;
+  --space-13:  96px;
+  --space-14:  128px;
+
+  /* ---- Container widths ------------------------------------------------- */
+  --container-sm:  640px;
+  --container-md:  860px;
+  --container-lg:  1080px;
+  --container-xl:  1280px;
+  --container-2xl: 1440px;
+
+  /* ---- Gutters --------------------------------------------------------- */
+  --gutter:        24px;
+  --gutter-lg:     48px;
+  --section-pad-y: 80px;
+}

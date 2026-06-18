@@ -1,0 +1,193 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap');
+
+:root {
+  --bg: #0c0d12;
+  --sidebar: #08090d;
+  --topbar: #0f1016;
+  --panel: #14161e;
+  --panel-2: #191c25;
+  --cell: #1b1e27;
+  --cell-muted: #15171f;
+  --border: rgba(255, 255, 255, .08);
+  --border-strong: rgba(255, 255, 255, .15);
+  --text: #f2f3f7;
+  --text-muted: #9499a8;
+  --text-faint: #565b6c;
+  --control: #20232e;
+  --control-hover: #282c3a;
+  --field: #23262f;
+  --shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  --accent: #F58220;
+  --accent-deep: #F15A22;
+}
+
+[data-app-theme="light"] {
+  --bg: #e9ebf0;
+  --sidebar: #ffffff;
+  --topbar: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f6f7f9;
+  --cell: #ffffff;
+  --cell-muted: #f4f5f8;
+  --border: rgba(4, 0, 63, .10);
+  --border-strong: rgba(4, 0, 63, .18);
+  --text: #13162a;
+  --text-muted: #6c7385;
+  --text-faint: #9aa0b2;
+  --control: #f1f2f5;
+  --control-hover: #e7e9ef;
+  --field: #f1f2f5;
+  --shadow: 0 18px 50px rgba(4, 0, 63, .14);
+  --accent: #F58220;
+  --accent-deep: #F15A22;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Open Sans', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+a { color: var(--accent); }
+
+.cond {
+  font-stretch: 75%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+/* Keyframes */
+@keyframes goldRipple {
+  0% { box-shadow: 0 0 0 0 rgba(199, 158, 64, .55); }
+  70% { box-shadow: 0 0 0 7px rgba(199, 158, 64, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(199, 158, 64, 0); }
+}
+@keyframes goldGlow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.13) saturate(1.03); }
+}
+@keyframes goldFlag {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+@keyframes uwwIn {
+  from { transform: translateY(8px) scale(.985); }
+  to { transform: none; }
+}
+@keyframes uwwFade {
+  from { opacity: .35; }
+  to { opacity: 1; }
+}
+@keyframes uwwPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+@keyframes uwwSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+.uww-overlay {
+  animation: uwwIn .18s ease-out;
+}
+
+.uww-spin {
+  animation: uwwSpin .8s linear infinite;
+}
+
+/* Mobile view mode */
+.app-root.mobile {
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.app-root.mobile .uww-sidebar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  height: auto;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 4px env(safe-area-inset-bottom, 8px);
+  border-top: 1px solid var(--border);
+  z-index: 60;
+}
+
+.app-root.mobile .uww-sidebar-top,
+.app-root.mobile .uww-sidebar-bottom-controls {
+  display: none !important;
+}
+
+.app-root.mobile .uww-nav {
+  flex-direction: row !important;
+  width: 100%;
+  justify-content: space-around;
+  gap: 0 !important;
+}
+
+.app-root.mobile .uww-nav-item {
+  flex-direction: column;
+  font-size: 9px !important;
+  gap: 2px !important;
+  padding: 4px !important;
+}
+
+.app-root.mobile .uww-nav-item .uww-nav-accent { display: none; }
+
+.app-root.mobile .uww-main {
+  padding-bottom: 64px;
+}
+
+.app-root.mobile .uww-hide-mobile { display: none !important; }
+.uww-show-mobile { display: none; }
+.app-root.mobile .uww-show-mobile { display: block; }

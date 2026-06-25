@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStore } from '../../store';
 import type { StaffType, StaffMember } from '../../types';
@@ -55,7 +55,8 @@ function ToggleSwitch({ on, onClick }: { on: boolean; onClick: () => void }) {
 
 function SkillTags({ member }: { member: StaffMember }) {
   const updateStaff = useStore(s => s.updateStaff);
-  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [menu, setMenu] = useState<{ left: number; top?: number; bottom?: number; width: number } | null>(null);
 
   const assigned = member.skillsets;
   const available = SKILLSETS.filter(s => !assigned.includes(s));
@@ -64,7 +65,21 @@ function SkillTags({ member }: { member: StaffMember }) {
     updateStaff(member.id, { skillsets: assigned.filter(s => s !== skill) });
   const addSkill = (skill: string) => {
     updateStaff(member.id, { skillsets: [...assigned, skill] });
-    setOpen(false);
+    setMenu(null);
+  };
+
+  const openMenu = () => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const estHeight = Math.min(280, available.length * 38 + 10);
+    const spaceBelow = window.innerHeight - r.bottom;
+    const flipUp = spaceBelow < estHeight + 16 && r.top > spaceBelow;
+    const width = Math.max(190, r.width);
+    const left = Math.min(r.left, window.innerWidth - width - 12);
+    setMenu(flipUp
+      ? { left, bottom: window.innerHeight - r.top + 6, width }
+      : { left, top: r.bottom + 6, width });
   };
 
   return (
@@ -76,19 +91,27 @@ function SkillTags({ member }: { member: StaffMember }) {
         </span>
       ))}
       {available.length > 0 && (
-        <div style={{ position: 'relative' }}>
+        <>
           <button
+            ref={btnRef}
             type="button"
-            onClick={() => setOpen(o => !o)}
+            onClick={() => (menu ? setMenu(null) : openMenu())}
             title="Add skillset"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999, background: 'var(--control)', border: '1px dashed var(--border-strong)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}
           >
             <Plus size={13} /> <ChevronDown size={12} />
           </button>
-          {open && (
+          {menu && (
             <>
-              <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
-              <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 40, width: 200, background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 10, boxShadow: 'var(--shadow)', overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
+              <div onClick={() => setMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+              <div
+                style={{
+                  position: 'fixed', left: menu.left, width: menu.width, zIndex: 201,
+                  ...(menu.top != null ? { top: menu.top } : { bottom: menu.bottom }),
+                  background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 10,
+                  boxShadow: 'var(--shadow)', overflow: 'hidden', maxHeight: 280, overflowY: 'auto',
+                }}
+              >
                 {available.map(s => (
                   <button
                     key={s}
@@ -102,7 +125,7 @@ function SkillTags({ member }: { member: StaffMember }) {
               </div>
             </>
           )}
-        </div>
+        </>
       )}
     </div>
   );

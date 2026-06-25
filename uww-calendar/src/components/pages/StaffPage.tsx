@@ -133,7 +133,8 @@ function SkillTags({ member }: { member: StaffMember }) {
 
 function NewStaffModal({ onClose }: { onClose: () => void }) {
   const addStaff = useStore(s => s.addStaff);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [type, setType] = useState<StaffType>('Staff');
   const [skills, setSkills] = useState<string[]>([]);
@@ -142,9 +143,10 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
     setSkills(skills.includes(s) ? skills.filter(x => x !== s) : [...skills, s]);
 
   const create = () => {
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
     addStaff({
       id: 'st' + Date.now(),
-      name: name.trim() || 'New Staff',
+      name: fullName || 'New Staff',
       admin: false,
       location: '',
       email: email.trim(),
@@ -183,9 +185,15 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Name</label>
-          <input style={inputStyle} value={name} placeholder="Full name" onChange={e => setName(e.target.value)} />
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>First Name</label>
+            <input style={inputStyle} value={firstName} placeholder="First name" onChange={e => setFirstName(e.target.value)} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Last Name</label>
+            <input style={inputStyle} value={lastName} placeholder="Last name" onChange={e => setLastName(e.target.value)} />
+          </div>
         </div>
 
         <div style={{ marginBottom: 14 }}>

@@ -9,7 +9,7 @@ import {
   SEED_USERNAMES, SEED_INSTAGRAM, SEED_GROUPS, IMPORT_EVENTS, initDetail,
 } from '../data/seed';
 
-const LS_KEY = 'uww_cal_v1';
+const LS_KEY = 'uww_cal_v2';
 
 const ROLE_USER: Record<Role, string> = { admin: 'jh', staff: 'sr', freelance: 'aa' };
 

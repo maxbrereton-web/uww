@@ -172,7 +172,7 @@ export default function CalendarGrid() {
           </button>
         )}
 
-        <button onClick={openFilter} style={toolbarBtn}>
+        <button onClick={e => { const r = e.currentTarget.getBoundingClientRect(); openFilter({ x: r.left, y: r.bottom }); }} style={toolbarBtn}>
           <SlidersHorizontal size={15} /> Filter <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>▾</span>
         </button>
 

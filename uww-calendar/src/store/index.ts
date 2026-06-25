@@ -79,6 +79,7 @@ export interface StoreState {
   showNewEvent: boolean;
   showImport: boolean;
   showFilter: boolean;
+  filterAnchor: { x: number; y: number } | null;
   showProfile: boolean;
   showTutorial: boolean;
   contextMenu: ContextMenuData | null;
@@ -140,7 +141,7 @@ export interface StoreState {
   openImport: () => void;
   closeImport: () => void;
   confirmImport: () => void;
-  openFilter: () => void;
+  openFilter: (anchor?: { x: number; y: number }) => void;
   closeFilter: () => void;
   openProfile: () => void;
   closeProfile: () => void;
@@ -281,6 +282,7 @@ export const useStore = create<StoreState>((set, get) => {
     showNewEvent: false,
     showImport: false,
     showFilter: false,
+    filterAnchor: null,
     showProfile: false,
     showTutorial: false,
     contextMenu: null,
@@ -367,7 +369,7 @@ export const useStore = create<StoreState>((set, get) => {
       commit(st => ({ events: [...st.events, ...toAdd], showImport: false }));
     },
 
-    openFilter: () => set({ showFilter: true }),
+    openFilter: (anchor) => set({ showFilter: true, filterAnchor: anchor || null }),
     closeFilter: () => set({ showFilter: false }),
     openProfile: () => set({ showProfile: true }),
     closeProfile: () => set({ showProfile: false }),

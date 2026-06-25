@@ -26,7 +26,13 @@ export default function FilterPopup() {
   const filterPriority = useStore(s => s.filterPriority);
   const setFilterType = useStore(s => s.setFilterType);
   const setFilterPriority = useStore(s => s.setFilterPriority);
+  const anchor = useStore(s => s.filterAnchor);
   const close = useStore(s => s.closeFilter);
+
+  const WIDTH = 280;
+  const top = anchor ? anchor.y + 6 : 110;
+  const left = anchor ? Math.min(anchor.x, window.innerWidth - WIDTH - 12) : undefined;
+  const right = anchor ? undefined : 16;
 
   const btn = (active: boolean): React.CSSProperties => ({
     ...condensed, fontSize: 11, padding: '6px 11px', cursor: 'pointer', borderRadius: 7,
@@ -41,7 +47,7 @@ export default function FilterPopup() {
       <div
         className="uww-overlay"
         style={{
-          position: 'fixed', top: 110, right: 16, width: 280,
+          position: 'fixed', top, left, right, width: WIDTH,
           background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 12,
           boxShadow: 'var(--shadow)', zIndex: 90, padding: 16,
         }}

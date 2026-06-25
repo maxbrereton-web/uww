@@ -63,7 +63,8 @@ export default function TopBar() {
           textAlign: 'center',
           pointerEvents: 'none',
           ...condLabel,
-          fontSize: 16,
+          fontSize: 22,
+          letterSpacing: '.05em',
           color: 'var(--text)',
         }}
       >
@@ -76,41 +77,37 @@ export default function TopBar() {
           onClick={toggleNotifications}
           title="Notifications"
           style={{
-            position: 'relative',
             display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            width: 38,
-            height: 38,
-            borderRadius: 8,
+            gap: 10,
+            padding: '8px 12px',
+            borderRadius: 10,
             cursor: 'pointer',
             background: 'var(--control)',
+            border: '1px solid var(--border-strong)',
             color: 'var(--text)',
           }}
         >
-          <Bell size={18} />
+          <span style={{ fontSize: 13.5, fontWeight: 700 }}>Notifications</span>
+          <Bell size={16} />
           <span
             style={{
-              position: 'absolute',
-              top: -4,
-              right: -4,
               minWidth: 18,
               height: 18,
               padding: '0 5px',
-              borderRadius: 999,
+              borderRadius: 6,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 800,
-              fontStretch: '75%',
-              background: notifCount > 0 ? '#ef4444' : 'var(--control-hover)',
+              background: notifCount > 0 ? '#ED1C24' : 'var(--control-hover)',
               color: notifCount > 0 ? '#fff' : 'var(--text-muted)',
-              border: '1.5px solid var(--topbar)',
             }}
           >
             {notifCount}
           </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>▾</span>
         </button>
       </div>
 

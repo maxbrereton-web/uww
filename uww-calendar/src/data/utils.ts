@@ -173,17 +173,26 @@ export function completionFor(eventId: string, detail: Record<string, EventDetai
   return Math.round(score);
 }
 
-const TYPE_BAR_COLORS: Record<string, string> = {
-  wrestling: '#F58220',
-  continental: '#0089CF',
-  rankingseries: '#9B5DE5',
-  documentary: '#22C55E',
-  devcamp: '#E0A100',
-};
-
+/**
+ * Calendar-bar colour, mirroring the prototype's `eventColor()`.
+ * Derived from competition type (World / Continental / Ranking) with
+ * documentary + dev-camp overrides, unless an explicit barColor is set.
+ */
 export function eventBarColor(ev: UWWEvent): string {
   if (ev.barColor) return ev.barColor;
-  return TYPE_BAR_COLORS[ev.eventType] || '#F58220';
+  const c = ev.competitionType || '';
+  if (ev.eventType === 'documentary') return '#c9ccd6';
+  if (ev.eventType === 'devcamp') return '#3f7a52';
+  if (/World/i.test(c)) return '#1d6fae';
+  if (/Continental/i.test(c)) return '#9c2b4d';
+  if (/Ranking/i.test(c)) return '#bd5a1e';
+  return '#3c3987';
+}
+
+/** Text/foreground colour for a bar — dark only on the light documentary bar. */
+export function eventBarTextColor(ev: UWWEvent): string {
+  if (!ev.barColor && ev.eventType === 'documentary') return '#13162a';
+  return '#fff';
 }
 
 export function eventTypeLabel(t: string): string {

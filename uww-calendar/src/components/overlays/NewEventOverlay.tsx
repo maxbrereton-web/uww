@@ -28,6 +28,7 @@ export default function NewEventOverlay() {
   const update = useStore(s => s.updateNewEventForm);
   const submit = useStore(s => s.submitNewEvent);
   const close = useStore(s => s.closeNewEvent);
+  const openImport = useStore(s => s.openImport);
 
   const segBtn = (active: boolean): React.CSSProperties => ({
     ...condensed, flex: 1, padding: '8px 6px', fontSize: 11, cursor: 'pointer',
@@ -201,6 +202,13 @@ export default function NewEventOverlay() {
           >
             Create
           </button>
+        </div>
+
+        <div
+          onClick={() => { close(); openImport(); }}
+          style={{ marginTop: 12, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          Import from UWW.org
         </div>
       </div>
     </div>

@@ -1,12 +1,12 @@
 import type React from 'react';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Table as TableIcon,
-  Search, SlidersHorizontal, Plus, Download,
+  Search, SlidersHorizontal, Plus,
 } from 'lucide-react';
 import { useStore, visibleEvents, isAdmin, eventNotifCount } from '../../store';
 import type { UWWEvent } from '../../types';
 import {
-  buildCalendarWeeks, toISO, eventBarColor, priorityRank,
+  buildCalendarWeeks, toISO, eventBarColor, eventBarTextColor, priorityRank, isoToday,
 } from '../../data/utils';
 import PriorityDot from '../common/PriorityDot';
 import Avatar from '../common/Avatar';
@@ -24,9 +24,11 @@ const condLabel: React.CSSProperties = {
   letterSpacing: '.02em',
 };
 
-const ROW_TOP = 28; // vertical room reserved for day numbers
-const LANE_H = 26; // lane vertical pitch
-const BAR_H = 24;
+const BAND_TOP = 34; // vertical room reserved above the first bar lane
+const LANE_H = 40; // bar height
+const GAP = 5; // vertical gap between lanes
+const OVH = 20; // overflow-chip height
+const CELL_MIN = 132; // minimum day-cell / week-row height
 const MAX_LANES = 3;
 
 interface PlacedBar {
@@ -117,9 +119,9 @@ export default function CalendarGrid() {
   const setSearch = useStore(s => s.setSearch);
   const openFilter = useStore(s => s.openFilter);
   const openNewEvent = useStore(s => s.openNewEvent);
-  const openImport = useStore(s => s.openImport);
   const selectEvent = useStore(s => s.selectEvent);
   const setContextMenu = useStore(s => s.setContextMenu);
+  const openDmWith = useStore(s => s.openDmWith);
 
   const q = search.trim().toLowerCase();
   const filtered = events
@@ -155,25 +157,32 @@ export default function CalendarGrid() {
     <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <button onClick={prevMonth} title="Previous month" style={{ ...toolbarBtn, padding: 8 }}>
-            <ChevronLeft size={16} />
+        {admin && (
+          <button
+            onClick={() => openNewEvent()}
+            style={{
+              ...toolbarBtn,
+              background: 'var(--accent-deep)',
+              color: '#fff',
+              padding: '9px 15px',
+              boxShadow: '0 6px 16px rgba(241,90,34,.32)',
+            }}
+          >
+            <Plus size={16} /> New Event <span style={{ opacity: 0.8, fontSize: 10 }}>▾</span>
           </button>
-          <div style={{ ...condLabel, fontSize: 16, color: 'var(--text)', minWidth: 150, textAlign: 'center' }}>
-            {MONTHS[month]} {year}
-          </div>
-          <button onClick={nextMonth} title="Next month" style={{ ...toolbarBtn, padding: 8 }}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
+        )}
+
+        <button onClick={openFilter} style={toolbarBtn}>
+          <SlidersHorizontal size={15} /> Filter <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>▾</span>
+        </button>
 
         {/* View toggle */}
         <div style={{ display: 'flex', background: 'var(--control)', borderRadius: 8, padding: 3, gap: 3 }}>
           <button
             onClick={() => setCalView('calendar')}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6,
-              cursor: 'pointer', background: 'var(--accent)', color: '#fff', ...condLabel, fontSize: 11,
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
+              cursor: 'pointer', background: 'var(--panel)', color: 'var(--text)', ...condLabel, fontSize: 11,
             }}
           >
             <CalendarIcon size={14} /> Calendar
@@ -181,7 +190,7 @@ export default function CalendarGrid() {
           <button
             onClick={() => setCalView('table')}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6,
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
               cursor: 'pointer', background: 'transparent', color: 'var(--text-muted)', ...condLabel, fontSize: 11,
             }}
           >
@@ -189,79 +198,92 @@ export default function CalendarGrid() {
           </button>
         </div>
 
-        <div style={{ flex: 1 }} />
+        {/* Centered month nav */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, minWidth: 200 }}>
+          <button onClick={prevMonth} title="Previous month" style={{ background: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>
+            <ChevronLeft size={18} />
+          </button>
+          <div style={{ ...condLabel, fontSize: 18, color: 'var(--text)', letterSpacing: '.04em', minWidth: 150, textAlign: 'center' }}>
+            {MONTHS[month]} {year}
+          </div>
+          <button onClick={nextMonth} title="Next month" style={{ background: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>
+            <ChevronRight size={18} />
+          </button>
+        </div>
 
         {/* Search */}
         <div
           style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px',
-            background: 'var(--field)', border: '1px solid var(--border)', borderRadius: 8, height: 36,
+            display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px',
+            background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 10, height: 39,
           }}
         >
           <Search size={15} color="var(--text-muted)" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search events"
+            placeholder="Search events..."
             style={{
               border: 'none', outline: 'none', background: 'transparent', color: 'var(--text)',
-              fontSize: 13, width: 160,
+              fontSize: 13.5, width: 200,
             }}
           />
         </div>
+      </div>
 
-        <button onClick={openFilter} style={toolbarBtn}>
-          <SlidersHorizontal size={15} /> Filter
-        </button>
-
-        {admin && (
-          <>
-            <button
-              onClick={() => openNewEvent()}
-              style={{ ...toolbarBtn, background: 'var(--accent)', color: '#fff' }}
+      {/* Calendar panel */}
+      <div
+        style={{
+          background: 'var(--panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
+        {/* Day-of-week header */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            background: 'var(--panel-2)',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          {DOW.map(d => (
+            <div
+              key={d}
+              style={{
+                ...condLabel,
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                letterSpacing: '.1em',
+                padding: '11px 12px',
+              }}
             >
-              <Plus size={15} /> New Event
-            </button>
-            <button onClick={openImport} style={toolbarBtn}>
-              <Download size={15} /> Import
-            </button>
-          </>
-        )}
-      </div>
+              {d}
+            </div>
+          ))}
+        </div>
 
-      {/* Day-of-week header */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0 }}>
-        {DOW.map(d => (
-          <div
-            key={d}
-            style={{ ...condLabel, fontSize: 11, color: 'var(--text-muted)', padding: '6px 8px', textAlign: 'left' }}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-
-      {/* Weeks */}
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Weeks */}
         {weeks.map((week, wi) => {
           const { bars, overflowByCol, maxLane } = layoutWeek(sorted, week.dates);
           const usedLanes = Math.min(MAX_LANES, maxLane + 1);
-          const minHeight = Math.max(120, ROW_TOP + usedLanes * LANE_H + 8);
+          const hasOverflow = Object.keys(overflowByCol).length > 0;
+          const rowHeight = Math.max(
+            CELL_MIN,
+            BAND_TOP + usedLanes * (LANE_H + GAP) + (hasOverflow ? OVH + GAP : 0) + 6,
+          );
+          const today = isoToday();
 
           return (
-            <div key={wi} style={{ position: 'relative', minHeight }}>
+            <div key={wi} style={{ position: 'relative', borderBottom: wi < weeks.length - 1 ? '1px solid var(--border)' : 'none' }}>
               {/* Day cells (the sizing element) */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  position: 'absolute',
-                  inset: 0,
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
                 {week.dates.map((d, ci) => {
                   const iso = d ? toISO(d) : '';
-                  const overflow = overflowByCol[ci] || [];
+                  const isToday = !!d && iso === today;
                   return (
                     <div
                       key={ci}
@@ -270,42 +292,39 @@ export default function CalendarGrid() {
                         setContextMenu({ x: e.clientX, y: e.clientY, type: 'day', date: iso });
                       }) : undefined}
                       style={{
-                        background: d ? 'var(--cell)' : 'var(--cell-muted)',
-                        border: '1px solid var(--border)',
-                        minHeight: 110,
+                        minHeight: rowHeight,
+                        padding: '8px 10px',
                         position: 'relative',
+                        background: d ? 'transparent' : 'var(--cell-muted)',
+                        borderRight: ci < 6 ? '1px solid var(--border)' : 'none',
                         cursor: d && admin ? 'context-menu' : 'default',
                       }}
                     >
                       {d && (
                         <div
                           style={{
-                            ...condLabel, fontSize: 12, color: 'var(--text-muted)', padding: '6px 8px',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            fontVariantNumeric: 'tabular-nums',
+                            textAlign: 'right',
+                            color: isToday ? '#fff' : 'var(--text)',
+                            ...(isToday
+                              ? {
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: '50%',
+                                  background: 'var(--accent-deep)',
+                                  marginLeft: 'auto',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  lineHeight: 1,
+                                }
+                              : {}),
                           }}
                         >
                           {d.getDate()}
                         </div>
-                      )}
-                      {/* +N more chip pinned near bottom of the cell */}
-                      {overflow.length > 0 && (
-                        <button
-                          onClick={() => selectEvent(overflow[0].id)}
-                          style={{
-                            position: 'absolute',
-                            left: 4,
-                            bottom: 4,
-                            padding: '2px 7px',
-                            borderRadius: 999,
-                            cursor: 'pointer',
-                            background: 'var(--accent)',
-                            color: '#fff',
-                            ...condLabel,
-                            fontSize: 10,
-                          }}
-                          title={`${overflow.length} more event(s)`}
-                        >
-                          +{overflow.length} more
-                        </button>
                       )}
                     </div>
                   );
@@ -316,14 +335,18 @@ export default function CalendarGrid() {
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                 {bars.map(bar => {
                   const { ev, firstCol, lastCol, lane } = bar;
-                  const leftPct = (firstCol / 7) * 100;
-                  const widthPct = ((lastCol - firstCol + 1) / 7) * 100;
-                  const isStart = ev.start === toISO(week.dates[firstCol] as Date);
+                  const leftPct = ((firstCol / 7) * 100).toFixed(3);
+                  const widthPct = (((lastCol - firstCol + 1) / 7) * 100).toFixed(3);
+                  const roundL = ev.start === toISO(week.dates[firstCol] as Date);
+                  const roundR = ev.end === toISO(week.dates[lastCol] as Date);
+                  const barBg = eventBarColor(ev);
+                  const fg = eventBarTextColor(ev);
                   const d = detail[ev.id];
-                  const confirmed = d
+                  const confirmedIds = d
                     ? d.members.filter(m => m.status === 'confirmed').map(m => m.id)
                     : ev.staff;
                   const nCount = notifCount(ev.id);
+                  const avatars = roundL ? ev.staff.slice(0, 4) : [];
 
                   return (
                     <div
@@ -333,65 +356,115 @@ export default function CalendarGrid() {
                         e.preventDefault();
                         setContextMenu({ x: e.clientX, y: e.clientY, type: 'event', eventId: ev.id });
                       }}
-                      title={ev.name}
+                      title={`${ev.name} · ${ev.priority} priority`}
                       style={{
                         position: 'absolute',
-                        left: `calc(${leftPct}% + 3px)`,
-                        width: `calc(${widthPct}% - 6px)`,
-                        top: ROW_TOP + lane * LANE_H,
-                        height: BAR_H,
-                        background: eventBarColor(ev),
-                        borderRadius: 6,
-                        padding: '0 6px',
-                        color: '#fff',
+                        left: `calc(${leftPct}% + 4px)`,
+                        width: `calc(${widthPct}% - 8px)`,
+                        top: BAND_TOP + lane * (LANE_H + GAP),
+                        height: LANE_H,
+                        background: barBg,
+                        color: fg,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 6,
-                        fontSize: 11,
-                        overflow: 'hidden',
+                        overflow: 'visible',
+                        borderTopLeftRadius: roundL ? 7 : 0,
+                        borderBottomLeftRadius: roundL ? 7 : 0,
+                        borderTopRightRadius: roundR ? 7 : 0,
+                        borderBottomRightRadius: roundR ? 7 : 0,
+                        opacity: lane === 0 ? 1 : 0.92,
+                        boxShadow: '0 2px 8px rgba(0,0,0,.3)',
                         cursor: 'pointer',
                         pointerEvents: 'auto',
                       }}
                     >
-                      {isStart && (
-                        <>
-                          <PriorityDot priority={ev.priority} size={8} />
-                          <span
-                            style={{
-                              ...condLabel,
-                              fontSize: 11,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            {ev.name}
-                          </span>
-                        </>
-                      )}
-                      <div style={{ flex: isStart ? '0 0 auto' : 1 }} />
-                      {/* confirmed staff avatars */}
-                      <div style={{ display: 'flex', alignItems: 'center', flex: '0 0 auto' }}>
-                        {confirmed.slice(0, 3).map((sid, i) => (
-                          <span key={sid} style={{ marginLeft: i === 0 ? 0 : -5 }}>
-                            <Avatar staffId={sid} size={16} confirmed />
-                          </span>
-                        ))}
-                      </div>
-                      {nCount > 0 && (
+                      {roundL && <PriorityDot priority={ev.priority} size={11} style={{ marginLeft: 9, flex: '0 0 11px' }} />}
+                      {roundL && (
                         <span
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: '50%',
-                            background: '#ef4444',
+                            fontSize: 14,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            padding: '0 4px 0 8px',
+                            flex: '0 1 auto',
+                            textShadow: fg === '#fff' ? '0 1px 2px rgba(0,0,0,.25)' : 'none',
+                          }}
+                        >
+                          {ev.name}
+                        </span>
+                      )}
+                      {roundL && nCount > 0 && (
+                        <span
+                          style={{
+                            background: '#ED1C24',
+                            color: '#fff',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            minWidth: 18,
+                            height: 18,
+                            borderRadius: 6,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 2px',
+                            padding: '0 4px',
                             flex: '0 0 auto',
                           }}
                           title={`${nCount} notification(s)`}
-                        />
+                        >
+                          {nCount}
+                        </span>
                       )}
+                      {avatars.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto', paddingLeft: 5, paddingRight: 5, flex: '0 0 auto' }}>
+                          {avatars.map(sid => {
+                            const ok = confirmedIds.includes(sid);
+                            return (
+                              <span
+                                key={sid}
+                                style={{ marginLeft: 3, opacity: ok ? 1 : 0.45 }}
+                                onClick={e => { e.stopPropagation(); openDmWith(sid); }}
+                              >
+                                <Avatar staffId={sid} size={25} confirmed={ok} />
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* +N more overflow chips */}
+                {Object.entries(overflowByCol).map(([col, evs]) => {
+                  const cc = Number(col);
+                  return (
+                    <div
+                      key={'more' + wi + col}
+                      onClick={() => selectEvent(evs[0].id)}
+                      title={`${evs.length} more event(s)`}
+                      style={{
+                        position: 'absolute',
+                        left: `calc(${((cc / 7) * 100).toFixed(3)}% + 4px)`,
+                        width: `calc(${((1 / 7) * 100).toFixed(3)}% - 8px)`,
+                        top: BAND_TOP + usedLanes * (LANE_H + GAP),
+                        height: OVH,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'var(--accent-deep)',
+                        color: '#fff',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        boxShadow: '0 2px 10px rgba(241,90,34,.5)',
+                        cursor: 'pointer',
+                        pointerEvents: 'auto',
+                      }}
+                    >
+                      +{evs.length} more
                     </div>
                   );
                 })}

@@ -20,10 +20,10 @@ interface NavDef {
 
 const NAV: NavDef[] = [
   { page: 'calendar', label: 'Calendar', icon: Calendar },
-  { page: 'staff', label: 'Staff', icon: Users, adminOnly: true },
-  { page: 'archive', label: 'Archive', icon: Archive },
-  { page: 'templates', label: 'Templates', icon: FileText, adminOnly: true },
   { page: 'chat', label: 'Chat', icon: MessageSquare },
+  { page: 'staff', label: 'Staff', icon: Users, adminOnly: true },
+  { page: 'templates', label: 'Templates', icon: FileText, adminOnly: true },
+  { page: 'archive', label: 'Archive', icon: Archive, adminOnly: true },
 ];
 
 const ROLE_LABEL: Record<Role, string> = {

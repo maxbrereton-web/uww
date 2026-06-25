@@ -3,10 +3,21 @@ import { useState } from 'react';
 import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useStore } from '../../store';
 import type { StaffType, StaffMember } from '../../types';
+import { SKILLSETS } from '../../data/seed';
 import Avatar from '../common/Avatar';
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
+};
+
+function titleCase(s: string): string {
+  return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+const skillChip: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+  borderRadius: 999, background: 'var(--control)', border: '1px solid var(--border-strong)',
+  fontSize: 12.5, fontWeight: 600, color: 'var(--text)', whiteSpace: 'nowrap',
 };
 
 const inputStyle: React.CSSProperties = {
@@ -44,48 +55,55 @@ function ToggleSwitch({ on, onClick }: { on: boolean; onClick: () => void }) {
 
 function SkillTags({ member }: { member: StaffMember }) {
   const updateStaff = useStore(s => s.updateStaff);
-  const [adding, setAdding] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const assigned = member.skillsets;
+  const available = SKILLSETS.filter(s => !assigned.includes(s));
 
   const removeSkill = (skill: string) =>
-    updateStaff(member.id, { skillsets: member.skillsets.filter(s => s !== skill) });
-
-  const addSkill = () => {
-    const v = adding.trim();
-    if (!v || member.skillsets.includes(v)) { setAdding(''); return; }
-    updateStaff(member.id, { skillsets: [...member.skillsets, v] });
-    setAdding('');
+    updateStaff(member.id, { skillsets: assigned.filter(s => s !== skill) });
+  const addSkill = (skill: string) => {
+    updateStaff(member.id, { skillsets: [...assigned, skill] });
+    setOpen(false);
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-      {member.skillsets.map(skill => (
-        <span
-          key={skill}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-            borderRadius: 999, background: 'var(--control)', border: '1px solid var(--border)',
-            ...condensed, fontSize: 10, color: 'var(--text)',
-          }}
-        >
-          {skill}
-          <X
-            size={11}
-            style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
-            onClick={() => removeSkill(skill)}
-          />
+    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+      {assigned.map(skill => (
+        <span key={skill} style={skillChip}>
+          {titleCase(skill)}
+          <X size={12} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => removeSkill(skill)} />
         </span>
       ))}
-      <input
-        value={adding}
-        placeholder="+ add"
-        onChange={e => setAdding(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') addSkill(); }}
-        onBlur={addSkill}
-        style={{
-          width: 70, padding: '3px 8px', background: 'var(--field)', color: 'var(--text)',
-          border: '1px solid var(--border)', borderRadius: 999, fontSize: 11, outline: 'none',
-        }}
-      />
+      {available.length > 0 && (
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            title="Add skillset"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999, background: 'var(--control)', border: '1px dashed var(--border-strong)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}
+          >
+            <Plus size={13} /> <ChevronDown size={12} />
+          </button>
+          {open && (
+            <>
+              <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 30 }} />
+              <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 40, width: 200, background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 10, boxShadow: 'var(--shadow)', overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
+                {available.map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => addSkill(s)}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 13px', border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {titleCase(s)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -96,14 +114,9 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [type, setType] = useState<StaffType>('Staff');
   const [skills, setSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState('');
 
-  const addSkill = () => {
-    const v = skillInput.trim();
-    if (!v || skills.includes(v)) { setSkillInput(''); return; }
-    setSkills([...skills, v]);
-    setSkillInput('');
-  };
+  const toggleSkill = (s: string) =>
+    setSkills(skills.includes(s) ? skills.filter(x => x !== s) : [...skills, s]);
 
   const create = () => {
     addStaff({
@@ -166,38 +179,26 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ marginBottom: 22 }}>
           <label style={labelStyle}>Skillsets</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              style={inputStyle}
-              value={skillInput}
-              placeholder="Add a skill"
-              onChange={e => setSkillInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addSkill(); }}
-            />
-            <button
-              onClick={addSkill}
-              style={{ ...condensed, fontSize: 11, padding: '0 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--control)', color: 'var(--text)', cursor: 'pointer' }}
-            >
-              Add
-            </button>
-          </div>
-          {skills.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-              {skills.map(s => (
-                <span
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {SKILLSETS.map(s => {
+              const sel = skills.includes(s);
+              return (
+                <button
                   key={s}
+                  type="button"
+                  onClick={() => toggleSkill(s)}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-                    borderRadius: 999, background: 'var(--control)', border: '1px solid var(--border)',
-                    ...condensed, fontSize: 10, color: 'var(--text)',
+                    padding: '6px 11px', borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                    background: sel ? 'var(--accent-deep)' : 'var(--control)',
+                    border: '1px solid ' + (sel ? 'var(--accent-deep)' : 'var(--border-strong)'),
+                    color: sel ? '#fff' : 'var(--text-muted)',
                   }}
                 >
-                  {s}
-                  <X size={11} style={{ cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setSkills(skills.filter(x => x !== s))} />
-                </span>
-              ))}
-            </div>
-          )}
+                  {titleCase(s)}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

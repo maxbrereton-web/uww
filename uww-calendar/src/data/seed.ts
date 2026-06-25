@@ -59,9 +59,9 @@ export function initDetail(eventId: string, events: UWWEvent[]): EventDetail {
   };
   if (eventId === "ev1" && ev) {
     detail.members = [
-      { id: "jh", roles: ["Designer"], status: "confirmed" },
+      { id: "jh", roles: ["Design"], status: "confirmed" },
       { id: "mc", roles: ["Social Video"], status: "confirmed" },
-      { id: "kt", roles: ["Documentary"], status: "confirmed" }
+      { id: "kt", roles: ["Documentary Video"], status: "confirmed" }
     ];
     detail.joinRequests = ["sr"];
     detail.schedule = {
@@ -90,6 +90,13 @@ export const COMPETITION_TYPES_WRESTLING = ['World Championships', 'Continental 
 export const COMPETITION_TYPES_CONTINENTAL = ['European Championships', 'Pan American Championships', 'Asian Championships', 'African Championships', 'Oceania Championships'];
 export const AGE_RANGES = ['Senior', 'U23', 'U20', 'U17', 'Cadet'];
 export const EVENT_ROLES = ['Designer', 'Photographer', 'Social Video', 'Documentary Video', 'Creative Video', 'Social Manager', 'Posting', 'Creative Photography'];
+
+/** Canonical skillset keys (lowercase). Display via titleCase. Event roles for a
+ *  member are limited to their assigned skillsets. */
+export const SKILLSETS = [
+  'social video', 'documentary video', 'creative video', 'bts video',
+  'design', 'photography', 'creative photography', 'posting', 'social manager',
+];
 export const POST_TYPES = ['Design', 'Video', 'Photos', 'Story', 'Reel', 'Carousel', 'Graphic', 'Animation'];
 
 export const IMPORT_EVENTS = [

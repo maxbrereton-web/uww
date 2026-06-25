@@ -48,24 +48,40 @@ export default function TutorialOverlay() {
   const isLast = idx === steps.length - 1;
   const cur = steps[idx];
 
+  // Ring sits on the current target; the cursor keeps its own persistent position
+  // so it can glide from one step to the next instead of disappearing between them.
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [pos, setPos] = useState(() => ({
+    x: (typeof window !== 'undefined' ? window.innerWidth : 800) / 2,
+    y: (typeof window !== 'undefined' ? window.innerHeight : 600) * 0.42,
+  }));
+  const [cursorVisible, setCursorVisible] = useState(false);
+  const [ringVisible, setRingVisible] = useState(false);
 
   useEffect(() => {
     const s = steps[idx];
     s.setup?.();
-    // Clear the old target, then re-measure once the app has navigated/rendered.
-    const clear = setTimeout(() => setRect(null), 0);
+    // Re-measure once the app has navigated/rendered. We keep the previous rect and
+    // cursor position in place during the wait, so both glide smoothly to the new spot.
     const measure = setTimeout(() => {
       const el = s.tut ? document.querySelector(`[data-tut="${s.tut}"]`) : null;
-      setRect(el ? el.getBoundingClientRect() : null);
-    }, 440);
-    return () => { clearTimeout(clear); clearTimeout(measure); };
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setRect(r);
+        setPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+        setCursorVisible(true);
+        setRingVisible(true);
+      } else {
+        // No target on this step: gently fade the cursor + ring out where they are.
+        setCursorVisible(false);
+        setRingVisible(false);
+      }
+    }, 460);
+    return () => clearTimeout(measure);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);
 
-  // Cursor tip sits at the centre of the target.
-  const cursorX = rect ? rect.left + rect.width / 2 : 0;
-  const cursorY = rect ? rect.top + rect.height / 2 : 0;
+  const glide = 'left .65s cubic-bezier(.45,.05,.2,1), top .65s cubic-bezier(.45,.05,.2,1)';
 
   // The text box stays centred for every step; only the cursor + ring move.
   const boxStyle: React.CSSProperties = {
@@ -75,29 +91,28 @@ export default function TutorialOverlay() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.45)' }}>
-      {/* Highlight ring on the target */}
+      {/* Highlight ring on the target — kept mounted so it can glide + fade */}
       {rect && (
         <div
           style={{
             position: 'fixed', left: rect.left - 5, top: rect.top - 5, width: rect.width + 10, height: rect.height + 10,
             border: '2px solid var(--accent)', borderRadius: 10, boxShadow: '0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent)',
-            pointerEvents: 'none', transition: 'all .45s ease', zIndex: 201,
+            pointerEvents: 'none', zIndex: 201, opacity: ringVisible ? 1 : 0,
+            transition: `${glide}, width .65s cubic-bezier(.45,.05,.2,1), height .65s cubic-bezier(.45,.05,.2,1), opacity .4s ease`,
           }}
         />
       )}
 
-      {/* Animated cursor */}
-      {rect && (
-        <div
-          style={{
-            position: 'fixed', left: cursorX, top: cursorY, zIndex: 202,
-            transition: 'left .5s ease, top .5s ease', color: '#fff',
-            filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.7))', pointerEvents: 'none',
-          }}
-        >
-          <MousePointer2 size={38} fill="#fff" />
-        </div>
-      )}
+      {/* Animated cursor — always mounted so it travels point to point */}
+      <div
+        style={{
+          position: 'fixed', left: pos.x, top: pos.y, zIndex: 202, color: '#fff',
+          transition: `${glide}, opacity .4s ease`, opacity: cursorVisible ? 1 : 0,
+          filter: 'drop-shadow(0 2px 6px rgba(0,0,0,.7))', pointerEvents: 'none', willChange: 'left, top',
+        }}
+      >
+        <MousePointer2 size={36} fill="#fff" />
+      </div>
 
       {/* Text box */}
       <div
@@ -107,13 +122,17 @@ export default function TutorialOverlay() {
           borderRadius: 14, boxShadow: 'var(--shadow)', padding: 22,
         }}
       >
-        <div style={{ ...condensed, fontSize: 10, color: 'var(--text-faint)', marginBottom: 10 }}>
-          Step {idx + 1} / {steps.length}
+        {/* key re-triggers the fade on each step. position/zIndex keeps it from
+            painting over the buttons while its opacity animation runs. */}
+        <div key={idx} style={{ animation: 'uwwFade .4s ease', position: 'relative', zIndex: 0 }}>
+          <div style={{ ...condensed, fontSize: 10, color: 'var(--text-faint)', marginBottom: 10 }}>
+            Step {idx + 1} / {steps.length}
+          </div>
+          <div style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 600, marginBottom: 20 }}>
+            {cur.text}
+          </div>
         </div>
-        <div style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--text)', fontWeight: 600, marginBottom: 20 }}>
-          {cur.text}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
           <button
             onClick={close}
             style={{ ...condensed, fontSize: 11, padding: '6px 4px', cursor: 'pointer', border: 'none', background: 'transparent', color: 'var(--text-muted)' }}

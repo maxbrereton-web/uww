@@ -29,6 +29,7 @@ export default function App() {
   const isNarrow = useStore(s => s.isNarrow);
   const view = useStore(effectiveView);
   const setIsNarrow = useStore(s => s.setIsNarrow);
+  const restoreSession = useStore(s => s.restoreSession);
   const cu = useStore(currentUser);
   const openProfile = useStore(s => s.openProfile);
   const page = useStore(s => s.page);
@@ -47,6 +48,11 @@ export default function App() {
   useEffect(() => {
     document.body.style.background = 'var(--bg)';
   }, [theme]);
+
+  // Restore a Supabase session on load (so a real login persists across devices/refreshes).
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
 
   // Auto-detect a narrow (real phone) screen and switch to the mobile layout.
   useEffect(() => {

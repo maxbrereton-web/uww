@@ -10,12 +10,14 @@ import {
   SEED_USERNAMES, SEED_INSTAGRAM, SEED_GROUPS, IMPORT_EVENTS, initDetail,
 } from '../data/seed';
 import { resolveMentionIds } from '../data/mentions';
+import { supabase } from '../lib/supabase';
 
 const LS_KEY = 'uww_cal_v3';
 
 const ROLE_USER: Record<Role, string> = { admin: 'jh', staff: 'sr', freelance: 'aa' };
 
 const SUPER_ADMIN = { name: 'admin', password: 'UWW' };
+const SUPER_ADMIN_EMAIL = 'admin@uww.app';
 
 /** Role a real (non-super-admin) user lands in, based on their staff record. */
 function roleForMember(m: StaffMember): Role {
@@ -179,7 +181,8 @@ export interface StoreState {
   editGroupId: string | null;
 
   // Actions
-  login: (identifier: string, password: string) => { ok: boolean; error?: string; needsSetup?: string };
+  login: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string; needsSetup?: string }>;
+  restoreSession: () => Promise<void>;
   completeInvite: (userId: string, data: { name: string; username: string; password: string; photo?: string }) => void;
   logout: () => void;
   toggleTheme: () => void;
@@ -326,6 +329,42 @@ export const useStore = create<StoreState>((set, get) => {
     commit(() => ({ detail: { ...s.detail, [eventId]: fn(cur) } }));
   };
 
+  // Map an authenticated Supabase user onto the app's identity (super-admin,
+  // an existing staff member matched by email, or a fresh stub for a new user).
+  const applyAuthedUser = (uid: string, email: string) => {
+    const emailL = email.trim().toLowerCase();
+    if (emailL === SUPER_ADMIN_EMAIL) {
+      commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
+      return;
+    }
+    const local = get().staff.find(m => m.email.trim().toLowerCase() === emailL);
+    if (local) {
+      commit(() => ({ authedUserId: local.id, isSuperAdmin: false, role: roleForMember(local), page: 'calendar', selectedEventId: null }));
+      return;
+    }
+    const stub: StaffMember = { id: uid, name: email.split('@')[0] || 'New User', admin: false, location: '', email, type: 'Staff', skillsets: [], country: '', password: 'set' };
+    commit(st => ({
+      staff: st.staff.some(m => m.id === uid) ? st.staff : [...st.staff, stub],
+      authedUserId: uid, isSuperAdmin: false, role: 'staff', page: 'calendar', selectedEventId: null,
+    }));
+  };
+
+  // Local credential check — the safety net if Supabase is unreachable or not set up yet.
+  const localLogin = (identifier: string, password: string): { ok: boolean; error?: string; needsSetup?: string } => {
+    const s = get();
+    if (identifier.trim().toLowerCase() === SUPER_ADMIN.name) {
+      if (password !== SUPER_ADMIN.password) return { ok: false, error: 'Incorrect password.' };
+      commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
+      return { ok: true };
+    }
+    const member = findByLogin(s.staff, s.usernames, identifier);
+    if (!member) return { ok: false, error: 'No account found for that email or username.' };
+    if (!member.password) return { ok: false, needsSetup: member.id };
+    if (member.password !== password) return { ok: false, error: 'Incorrect password.' };
+    commit(() => ({ authedUserId: member.id, isSuperAdmin: false, role: roleForMember(member), page: 'calendar', selectedEventId: null }));
+    return { ok: true };
+  };
+
   return {
     authedUserId: persisted.authedUserId ?? null,
     isSuperAdmin: persisted.isSuperAdmin ?? false,
@@ -387,21 +426,37 @@ export const useStore = create<StoreState>((set, get) => {
     editGroupModal: false,
     editGroupId: null,
 
-    login: (identifier, password) => {
-      const s = get();
-      // Super-admin test account (gets the dev view/role toggles).
-      if (identifier.trim().toLowerCase() === SUPER_ADMIN.name) {
-        if (password !== SUPER_ADMIN.password) return { ok: false, error: 'Incorrect password.' };
-        commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
-        return { ok: true };
+    login: async (identifier, password) => {
+      const trimmed = identifier.trim();
+      // Supabase auth is email-based: resolve a username/@tag (or 'admin') to an email.
+      let email = trimmed;
+      if (!email.includes('@')) {
+        if (email.toLowerCase() === SUPER_ADMIN.name) {
+          email = SUPER_ADMIN_EMAIL;
+        } else {
+          try {
+            const { data } = await supabase.rpc('email_for_identifier', { identifier: email });
+            if (typeof data === 'string' && data) email = data;
+          } catch { /* offline — fall through to local */ }
+        }
       }
-      const member = findByLogin(s.staff, s.usernames, identifier);
-      if (!member) return { ok: false, error: 'No account found for that email or username.' };
-      // Invited but no password yet → send them to account setup.
-      if (!member.password) return { ok: false, needsSetup: member.id };
-      if (member.password !== password) return { ok: false, error: 'Incorrect password.' };
-      commit(() => ({ authedUserId: member.id, isSuperAdmin: false, role: roleForMember(member), page: 'calendar', selectedEventId: null }));
-      return { ok: true };
+      // Try Supabase first (real, cross-device accounts).
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error && data.user) {
+          applyAuthedUser(data.user.id, data.user.email || email);
+          return { ok: true };
+        }
+      } catch { /* network/unconfigured — fall back to local accounts */ }
+      // Local fallback so the app is never un-loginnable.
+      return localLogin(identifier, password);
+    },
+    restoreSession: async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const u = data.session?.user;
+        if (u) applyAuthedUser(u.id, u.email || '');
+      } catch { /* ignore */ }
     },
     completeInvite: (userId, data) => {
       const s = get();
@@ -419,7 +474,10 @@ export const useStore = create<StoreState>((set, get) => {
         selectedEventId: null,
       }));
     },
-    logout: () => commit(() => ({ authedUserId: null, isSuperAdmin: false, selectedEventId: null, showProfile: false, showNotifications: false })),
+    logout: () => {
+      supabase.auth.signOut().catch(() => {});
+      commit(() => ({ authedUserId: null, isSuperAdmin: false, selectedEventId: null, showProfile: false, showNotifications: false }));
+    },
 
     toggleTheme: () => commit(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
     setViewMode: (m) => set({ viewMode: m }),

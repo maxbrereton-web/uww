@@ -46,6 +46,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   // When an invited user logs in, we switch to the account-setup form.
   const [setupId, setSetupId] = useState<string | null>(null);
@@ -56,9 +57,12 @@ export default function LoginScreen() {
 
   const setupMember = setupId ? staff.find(m => m.id === setupId) : undefined;
 
-  const submitLogin = () => {
+  const submitLogin = async () => {
+    if (busy) return;
     setError('');
-    const res = login(identifier, password);
+    setBusy(true);
+    const res = await login(identifier, password);
+    setBusy(false);
     if (res.ok) return;
     if (res.needsSetup) {
       const m = staff.find(x => x.id === res.needsSetup);
@@ -168,7 +172,9 @@ export default function LoginScreen() {
 
             {error && <div style={{ color: '#ED1C24', fontSize: 13, marginBottom: 14, textAlign: 'center' }}>{error}</div>}
 
-            <button onClick={submitLogin} style={primaryBtn}>Log in</button>
+            <button onClick={submitLogin} disabled={busy} style={{ ...primaryBtn, opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
+              {busy ? 'Signing in…' : 'Log in'}
+            </button>
           </>
         )}
       </div>

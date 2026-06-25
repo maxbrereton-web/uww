@@ -39,6 +39,7 @@ export interface StaffMember {
   skillsets: string[];
   country: string;
   photo?: string;
+  password?: string;   // unset = invited, must set up their account on first login
 }
 
 export interface EventMember {

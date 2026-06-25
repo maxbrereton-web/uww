@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
-import { X, Camera, AtSign } from 'lucide-react';
+import { X, Camera, AtSign, LogOut } from 'lucide-react';
 import { useStore, currentUser, effectiveView } from '../../store';
 import type { Role } from '../../types';
 
@@ -51,10 +51,12 @@ export default function ProfileModal() {
   const openTutorial = useStore(s => s.openTutorial);
   const close = useStore(s => s.closeProfile);
   const isMobile = useStore(effectiveView) === 'mobile';
+  const isSuperAdmin = useStore(s => s.isSuperAdmin);
   const role = useStore(s => s.role);
   const setRole = useStore(s => s.setRole);
   const theme = useStore(s => s.theme);
   const toggleTheme = useStore(s => s.toggleTheme);
+  const logout = useStore(s => s.logout);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [editingEmail, setEditingEmail] = useState(false);
@@ -202,34 +204,39 @@ export default function ProfileModal() {
           </div>
         </div>
 
-        {/* Role + theme (mobile only — desktop has these in the sidebar) */}
+        {/* Role/theme/logout (mobile only — desktop has these in the sidebar) */}
         {isMobile && (
           <div style={{ marginBottom: 22 }}>
-            <label style={labelStyle}>Role</label>
-            <div style={{ display: 'flex', background: 'var(--control)', borderRadius: 10, padding: 4, gap: 4, marginBottom: 12 }}>
-              {(['admin', 'staff', 'freelance'] as Role[]).map(r => {
-                const on = role === r;
-                return (
-                  <button
-                    key={r}
-                    onClick={() => setRole(r)}
-                    style={{
-                      flex: 1, padding: '11px 0', borderRadius: 7, cursor: 'pointer', border: 'none',
-                      background: on ? 'var(--accent-deep)' : 'transparent',
-                      color: on ? '#fff' : 'var(--text-muted)',
-                      ...condensed, fontSize: 13,
-                    }}
-                  >
-                    {r === 'admin' ? 'Admin' : r === 'staff' ? 'Staff' : 'Freelance'}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Role toggle: super-admin test account only */}
+            {isSuperAdmin && (
+              <>
+                <label style={labelStyle}>Role</label>
+                <div style={{ display: 'flex', background: 'var(--control)', borderRadius: 10, padding: 4, gap: 4, marginBottom: 12 }}>
+                  {(['admin', 'staff', 'freelance'] as Role[]).map(r => {
+                    const on = role === r;
+                    return (
+                      <button
+                        key={r}
+                        onClick={() => setRole(r)}
+                        style={{
+                          flex: 1, padding: '11px 0', borderRadius: 7, cursor: 'pointer', border: 'none',
+                          background: on ? 'var(--accent-deep)' : 'transparent',
+                          color: on ? '#fff' : 'var(--text-muted)',
+                          ...condensed, fontSize: 13,
+                        }}
+                      >
+                        {r === 'admin' ? 'Admin' : r === 'staff' ? 'Staff' : 'Freelance'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* Dark / light mode */}
             <button
               onClick={toggleTheme}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'var(--control)', border: 'none', borderRadius: 10, padding: '14px 16px', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'var(--control)', border: 'none', borderRadius: 10, padding: '14px 16px', cursor: 'pointer', marginBottom: 12 }}
             >
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
                 {theme === 'dark' ? 'Dark mode' : 'Light mode'}
@@ -248,6 +255,14 @@ export default function ProfileModal() {
                   }}
                 />
               </span>
+            </button>
+
+            {/* Log out */}
+            <button
+              onClick={() => { close(); logout(); }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 10, padding: '13px 16px', cursor: 'pointer', ...condensed, fontSize: 12, color: 'var(--text-muted)' }}
+            >
+              <LogOut size={15} /> Log out
             </button>
           </div>
         )}

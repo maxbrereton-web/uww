@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Calendar, Users, Archive, FileText, MessageSquare, Sun, Moon } from 'lucide-react';
+import { Calendar, Users, Archive, FileText, MessageSquare, Sun, Moon, LogOut } from 'lucide-react';
 import { useStore, currentUser } from '../../store';
 import type { Page, Role } from '../../types';
 import Avatar from '../common/Avatar';
@@ -38,6 +38,7 @@ export default function Sidebar() {
   const selectedEventId = useStore(s => s.selectedEventId);
   const viewMode = useStore(s => s.viewMode);
   const theme = useStore(s => s.theme);
+  const isSuperAdmin = useStore(s => s.isSuperAdmin);
   const cu = useStore(currentUser);
   const me = useStore(s => s.staff.find(m => m.id === cu));
 
@@ -46,6 +47,7 @@ export default function Sidebar() {
   const setRole = useStore(s => s.setRole);
   const openProfile = useStore(s => s.openProfile);
   const toggleTheme = useStore(s => s.toggleTheme);
+  const logout = useStore(s => s.logout);
 
   const isAdminRole = role === 'admin';
 
@@ -145,6 +147,8 @@ export default function Sidebar() {
           gap: 10,
         }}
       >
+        {/* Dev-only view + role toggles — super-admin test account only */}
+        {isSuperAdmin && (<>
         {/* Web / Mobile segmented toggle */}
         <div
           style={{
@@ -210,6 +214,7 @@ export default function Sidebar() {
             );
           })}
         </div>
+        </>)}
 
         {/* User profile row */}
         <button
@@ -288,6 +293,19 @@ export default function Sidebar() {
               {theme === 'dark' ? <Moon size={10} /> : <Sun size={10} />}
             </span>
           </span>
+        </button>
+
+        {/* Log out */}
+        <button
+          onClick={logout}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '9px 12px', borderRadius: 8, cursor: 'pointer', width: '100%',
+            background: 'transparent', border: '1px solid var(--border-strong)',
+            ...condLabel, fontSize: 11, color: 'var(--text-muted)',
+          }}
+        >
+          <LogOut size={14} /> Log out
         </button>
       </div>
     </div>

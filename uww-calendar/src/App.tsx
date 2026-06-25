@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore, currentUser, effectiveView } from './store';
+import LoginScreen from './components/auth/LoginScreen';
 import Avatar from './components/common/Avatar';
 import Sidebar from './components/layout/Sidebar';
 import MobileTabBar from './components/layout/MobileTabBar';
@@ -23,6 +24,7 @@ import DmOverlay from './components/overlays/DmOverlay';
 
 export default function App() {
   const theme = useStore(s => s.theme);
+  const authedUserId = useStore(s => s.authedUserId);
   const viewMode = useStore(s => s.viewMode);
   const isNarrow = useStore(s => s.isNarrow);
   const view = useStore(effectiveView);
@@ -53,6 +55,9 @@ export default function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [setIsNarrow]);
+
+  // Not signed in → show the login / account-setup screen instead of the app.
+  if (!authedUserId) return <LoginScreen />;
 
   let pageContent: React.ReactNode = null;
   if (selectedEventId) {

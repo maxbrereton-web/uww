@@ -13,11 +13,11 @@ export const SEED_ARCHIVED: UWWEvent[] = [
 ];
 
 export const SEED_STAFF: StaffMember[] = [
-  { id: "jh", name: "Joshua Halvatzis", admin: true, location: "Brighton, UK", email: "joshhal@outlook.com", type: "Freelance", skillsets: ["design", "photography"], country: "GBR", photo: "/assets/josh.jpg" },
-  { id: "mc", name: "Mateusz Zielonka", admin: false, location: "Warsaw, PL", email: "m.zielonka@uww.org", type: "Staff", skillsets: ["social video", "social manager"], country: "POL", photo: "/assets/mateusz.jpg" },
-  { id: "kt", name: "Luca Vukovich", admin: false, location: "London, UK", email: "l.vukovich@uww.org", type: "Staff", skillsets: ["documentary video", "creative video"], country: "GBR", photo: "/assets/luca.jpg" },
-  { id: "aa", name: "Karol Angerman", admin: false, location: "Krakow, PL", email: "k.angerman@uww.org", type: "Freelance", skillsets: ["photography", "creative photography"], country: "POL", photo: "/assets/karol.jpg" },
-  { id: "sr", name: "Mike Stevens", admin: false, location: "Bournemouth, UK", email: "mike.stevens@uww.org", type: "Staff", skillsets: ["posting", "design"], country: "GBR", photo: "/assets/mike.jpg" }
+  { id: "jh", name: "Joshua Halvatzis", admin: true, location: "Brighton, UK", email: "joshuahalvatzis@gmail.com", type: "Freelance", skillsets: ["design", "photography"], country: "GBR", photo: "/assets/josh.jpg", password: "UWW" },
+  { id: "mc", name: "Mateusz Zielonka", admin: false, location: "Warsaw, PL", email: "m.zielonka@uww.org", type: "Staff", skillsets: ["social video", "social manager"], country: "POL", photo: "/assets/mateusz.jpg", password: "UWW" },
+  { id: "kt", name: "Luca Vukovich", admin: false, location: "London, UK", email: "l.vukovich@uww.org", type: "Staff", skillsets: ["documentary video", "creative video"], country: "GBR", photo: "/assets/luca.jpg", password: "UWW" },
+  { id: "aa", name: "Karol Angerman", admin: false, location: "Krakow, PL", email: "k.angerman@uww.org", type: "Freelance", skillsets: ["photography", "creative photography"], country: "POL", photo: "/assets/karol.jpg", password: "UWW" },
+  { id: "sr", name: "Mike Stevens", admin: false, location: "Bournemouth, UK", email: "mike.stevens@uww.org", type: "Staff", skillsets: ["posting", "design"], country: "GBR", photo: "/assets/mike.jpg", password: "UWW" }
 ];
 
 export const SEED_NOTIFICATIONS: Notification[] = [
@@ -36,7 +36,7 @@ export const SEED_TEMPLATES: Templates = {
   docs: [{ id: "dt1", name: "Event Brief", content: "" }]
 };
 
-export const SEED_USERNAMES: Record<string, string> = {};
+export const SEED_USERNAMES: Record<string, string> = { jh: "josh.hal" };
 export const SEED_INSTAGRAM: Record<string, string> = { jh: "joshuahalvatzis", mc: "mateuszzielonka" };
 
 export const SEED_GROUPS: Group[] = [];

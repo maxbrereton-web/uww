@@ -199,6 +199,9 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
         <div style={{ marginBottom: 14 }}>
           <label style={labelStyle}>Email</label>
           <input style={inputStyle} value={email} placeholder="email@uww.org" onChange={e => setEmail(e.target.value)} />
+          <div style={{ fontSize: 11.5, color: 'var(--text-faint)', marginTop: 6, lineHeight: 1.4 }}>
+            They'll sign in with this email and set their own password, name, tag and photo.
+          </div>
         </div>
 
         <div style={{ marginBottom: 14 }}>
@@ -243,7 +246,7 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
             onClick={create}
             style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
           >
-            Create
+            Send Invite
           </button>
         </div>
       </div>

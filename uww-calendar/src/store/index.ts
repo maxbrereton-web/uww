@@ -11,9 +11,27 @@ import {
 } from '../data/seed';
 import { resolveMentionIds } from '../data/mentions';
 
-const LS_KEY = 'uww_cal_v2';
+const LS_KEY = 'uww_cal_v3';
 
 const ROLE_USER: Record<Role, string> = { admin: 'jh', staff: 'sr', freelance: 'aa' };
+
+const SUPER_ADMIN = { name: 'admin', password: 'UWW' };
+
+/** Role a real (non-super-admin) user lands in, based on their staff record. */
+function roleForMember(m: StaffMember): Role {
+  if (m.admin) return 'admin';
+  return m.type === 'Freelance' ? 'freelance' : 'staff';
+}
+
+/** Match a login identifier (email or @tag/username) to a staff member. */
+function findByLogin(staff: StaffMember[], usernames: Record<string, string>, identifier: string): StaffMember | undefined {
+  const id = identifier.trim().toLowerCase().replace(/^@/, '');
+  return staff.find(m => {
+    if (m.email.trim().toLowerCase() === id) return true;
+    const handle = (usernames[m.id] || m.name.toLowerCase().replace(/[^a-z0-9]/g, '')).toLowerCase();
+    return handle === id;
+  });
+}
 
 let mentionSeq = 0;
 /** Build a notification for each person tagged via @handle in `text` (excluding the sender). */
@@ -53,6 +71,8 @@ interface PersistShape {
   templates: Templates;
   usernames: Record<string, string>;
   instagram: Record<string, string>;
+  authedUserId: string | null;
+  isSuperAdmin: boolean;
 }
 
 function loadPersisted(): Partial<PersistShape> {
@@ -82,6 +102,8 @@ function scheduleSave(get: () => StoreState) {
       templates: s.templates,
       usernames: s.usernames,
       instagram: s.instagram,
+      authedUserId: s.authedUserId,
+      isSuperAdmin: s.isSuperAdmin,
     };
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -92,6 +114,10 @@ function scheduleSave(get: () => StoreState) {
 }
 
 export interface StoreState {
+  // Auth
+  authedUserId: string | null;   // staff id of the logged-in user; null = show login
+  isSuperAdmin: boolean;         // true only for the 'admin' test account (gets dev toggles)
+
   // UI state
   theme: 'dark' | 'light';
   viewMode: 'web' | 'mobile';
@@ -153,6 +179,9 @@ export interface StoreState {
   editGroupId: string | null;
 
   // Actions
+  login: (identifier: string, password: string) => { ok: boolean; error?: string; needsSetup?: string };
+  completeInvite: (userId: string, data: { name: string; username: string; password: string; photo?: string }) => void;
+  logout: () => void;
   toggleTheme: () => void;
   setViewMode: (m: 'web' | 'mobile') => void;
   setIsNarrow: (b: boolean) => void;
@@ -298,6 +327,9 @@ export const useStore = create<StoreState>((set, get) => {
   };
 
   return {
+    authedUserId: persisted.authedUserId ?? null,
+    isSuperAdmin: persisted.isSuperAdmin ?? false,
+
     theme: persisted.theme || 'dark',
     viewMode: 'web',
     isNarrow: typeof window !== 'undefined' && window.innerWidth < 760,
@@ -354,6 +386,40 @@ export const useStore = create<StoreState>((set, get) => {
     newGroupMembers: [],
     editGroupModal: false,
     editGroupId: null,
+
+    login: (identifier, password) => {
+      const s = get();
+      // Super-admin test account (gets the dev view/role toggles).
+      if (identifier.trim().toLowerCase() === SUPER_ADMIN.name) {
+        if (password !== SUPER_ADMIN.password) return { ok: false, error: 'Incorrect password.' };
+        commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
+        return { ok: true };
+      }
+      const member = findByLogin(s.staff, s.usernames, identifier);
+      if (!member) return { ok: false, error: 'No account found for that email or username.' };
+      // Invited but no password yet → send them to account setup.
+      if (!member.password) return { ok: false, needsSetup: member.id };
+      if (member.password !== password) return { ok: false, error: 'Incorrect password.' };
+      commit(() => ({ authedUserId: member.id, isSuperAdmin: false, role: roleForMember(member), page: 'calendar', selectedEventId: null }));
+      return { ok: true };
+    },
+    completeInvite: (userId, data) => {
+      const s = get();
+      const member = s.staff.find(m => m.id === userId);
+      if (!member) return;
+      commit(st => ({
+        staff: st.staff.map(m => m.id === userId
+          ? { ...m, name: data.name.trim() || m.name, password: data.password, photo: data.photo ?? m.photo }
+          : m),
+        usernames: { ...st.usernames, [userId]: data.username.trim().replace(/^@/, '') },
+        authedUserId: userId,
+        isSuperAdmin: false,
+        role: roleForMember(member),
+        page: 'calendar',
+        selectedEventId: null,
+      }));
+    },
+    logout: () => commit(() => ({ authedUserId: null, isSuperAdmin: false, selectedEventId: null, showProfile: false, showNotifications: false })),
 
     toggleTheme: () => commit(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
     setViewMode: (m) => set({ viewMode: m }),
@@ -705,6 +771,9 @@ export const useStore = create<StoreState>((set, get) => {
 
 // Selectors
 export function currentUser(state: StoreState): string {
+  // A real logged-in user is themselves; the super-admin test account follows the
+  // role toggle (so it can impersonate admin / staff / freelance while testing).
+  if (state.authedUserId && !state.isSuperAdmin) return state.authedUserId;
   return ROLE_USER[state.role];
 }
 

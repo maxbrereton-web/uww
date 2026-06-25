@@ -184,10 +184,16 @@ a { color: var(--accent); }
 .app-root.mobilelayout .uww-nav-item {
   flex: 1;
   flex-direction: column;
-  font-size: 9px !important;
-  gap: 3px !important;
-  padding: 5px 2px !important;
+  font-size: 10px !important;
+  gap: 4px !important;
+  padding: 6px 2px !important;
   text-align: center;
+}
+
+/* Active bottom-tab item is orange (icon + label) on mobile */
+.app-root.mobilelayout .uww-nav-item[data-active="true"] {
+  color: var(--accent) !important;
+  background: transparent !important;
 }
 
 .app-root.mobilelayout .uww-nav-item .uww-nav-accent { display: none; }

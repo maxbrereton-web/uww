@@ -49,7 +49,7 @@ export default function TopBar() {
             }}
           >
             <ChevronLeft size={16} />
-            <span>Calendar</span>
+            <span className="uww-back-label">Calendar</span>
           </button>
         )}
       </div>

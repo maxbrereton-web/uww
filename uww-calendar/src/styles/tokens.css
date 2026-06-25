@@ -202,9 +202,25 @@ a { color: var(--accent); }
   padding-bottom: 66px;
 }
 
-/* Top bar: bell only + smaller title on mobile */
+/* Top bar: bell + back button shown icon-only on mobile, leaving room for the title */
 .app-root.mobilelayout .uww-notif-label { display: none !important; }
-.app-root.mobilelayout .uww-topbar-title { font-size: 15px !important; }
+.app-root.mobilelayout .uww-back-label { display: none !important; }
+
+/* Centre the title within the space left by the buttons (not the whole bar) so it
+   never slides under the notification button; truncate with an ellipsis if needed. */
+.app-root.mobilelayout .uww-topbar-title {
+  position: static !important;
+  left: auto !important;
+  right: auto !important;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px !important;
+  letter-spacing: .03em !important;
+}
 
 /* Floating profile button — mobile only */
 .uww-mobile-me { display: none; }

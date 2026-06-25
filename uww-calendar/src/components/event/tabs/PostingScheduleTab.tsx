@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useStore, isAdmin } from '../../../store';
+import { useStore, isAdmin, effectiveView } from '../../../store';
 import type { PostingItem } from '../../../types';
 import { eventDayList } from '../../../data/utils';
 import { POST_TYPES } from '../../../data/seed';
@@ -40,6 +40,7 @@ export default function PostingScheduleTab({ eventId }: { eventId: string }) {
   const ev = useStore(s => s.events.find(e => e.id === eventId) || s.archivedEvents.find(e => e.id === eventId));
   const detail = useStore(s => s.detail[eventId]);
   const admin = useStore(isAdmin);
+  const isMobile = useStore(effectiveView) === 'mobile';
   const postingDayIdx = useStore(s => s.postingDayIdx);
   const setPostingDayIdx = useStore(s => s.setPostingDayIdx);
   const addPostingRow = useStore(s => s.addPostingRow);
@@ -80,6 +81,15 @@ export default function PostingScheduleTab({ eventId }: { eventId: string }) {
         })}
       </div>
 
+      {isMobile ? (
+        <MobilePosts
+          rows={rows}
+          ro={ro}
+          admin={admin}
+          set={set}
+          onRemove={(i) => removePostingRow(eventId, dayKey, i)}
+        />
+      ) : (
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         <div style={headStyle}>
           <div style={{ padding: '11px 12px' }}>Posted</div>
@@ -153,6 +163,7 @@ export default function PostingScheduleTab({ eventId }: { eventId: string }) {
           </div>
         )}
       </div>
+      )}
 
       {admin && (
         <div
@@ -166,6 +177,109 @@ export default function PostingScheduleTab({ eventId }: { eventId: string }) {
           + Add post
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---- Mobile: each post becomes a stacked card so every field is readable ---- */
+const fieldLabel: React.CSSProperties = {
+  ...condensed, fontSize: 10, color: 'var(--text-muted)', letterSpacing: '.07em', marginBottom: 3,
+};
+const mobInput: React.CSSProperties = {
+  width: '100%', background: 'var(--field)', border: '1px solid var(--border)', borderRadius: 7,
+  padding: '8px 9px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none',
+};
+
+function MobilePosts({
+  rows, ro, admin, set, onRemove,
+}: {
+  rows: PostingItem[];
+  ro: boolean;
+  admin: boolean;
+  set: (rowIdx: number, patch: Partial<PostingItem>) => void;
+  onRemove: (rowIdx: number) => void;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 26, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>
+        No posts scheduled for this day yet.
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {rows.map((row, i) => (
+        <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--panel-2)' }}>
+          {/* Posted toggle + remove */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div
+              onClick={ro ? undefined : () => set(i, { posted: !row.posted })}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: ro ? 'default' : 'pointer' }}
+            >
+              <div
+                style={{
+                  width: 22, height: 22, borderRadius: 5, border: '1.5px solid var(--border-strong)',
+                  background: row.posted ? '#2e9e5b' : 'transparent', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', color: '#fff', fontSize: 13,
+                }}
+              >
+                {row.posted ? '✓' : ''}
+              </div>
+              <span style={{ ...condensed, fontSize: 11, color: row.posted ? '#2e9e5b' : 'var(--text-muted)' }}>
+                {row.posted ? 'Posted' : 'Not posted'}
+              </span>
+            </div>
+            {admin && (
+              <span onClick={() => onRemove(i)} style={{ cursor: 'pointer', color: 'var(--text-faint)', fontSize: 20, lineHeight: 1, padding: '0 4px' }}>×</span>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 11 }}>
+            <div style={fieldLabel}>Post Type</div>
+            <select
+              value={row.type}
+              disabled={ro}
+              onChange={e => set(i, { type: e.target.value })}
+              style={mobInput}
+            >
+              {POST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 11 }}>
+            <div style={fieldLabel}>Name</div>
+            <input value={row.name} readOnly={ro} placeholder="Post name..." onChange={e => set(i, { name: e.target.value })} style={mobInput} />
+          </div>
+
+          <div style={{ marginBottom: 11 }}>
+            <div style={fieldLabel}>Link</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <input value={row.link} readOnly={ro} placeholder="Paste Dropbox link..." onChange={e => set(i, { link: e.target.value })} style={{ ...mobInput, flex: 1, minWidth: 0 }} />
+              {row.link.trim() && (
+                <a
+                  href={normalizeUrl(row.link)}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open link"
+                  style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 8, background: 'color-mix(in srgb, var(--accent-deep) 16%, transparent)', color: 'var(--accent)' }}
+                >
+                  <ExternalLinkIcon size={16} />
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 11 }}>
+            <div style={fieldLabel}>Athlete</div>
+            <input value={row.athlete} readOnly={ro} placeholder="Athlete..." onChange={e => set(i, { athlete: e.target.value })} style={mobInput} />
+          </div>
+
+          <div>
+            <div style={fieldLabel}>Caption</div>
+            <textarea value={row.caption} readOnly={ro} placeholder="Caption..." rows={3} onChange={e => set(i, { caption: e.target.value })} style={{ ...mobInput, resize: 'vertical', lineHeight: 1.4, minHeight: 56 }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

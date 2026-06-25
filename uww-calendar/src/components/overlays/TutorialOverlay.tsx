@@ -10,7 +10,6 @@ const condensed: React.CSSProperties = {
 
 const TUT_EVENT = 'ev1';
 const BOX_W = 360;
-const BOX_H = 168;
 
 interface Step {
   text: string;
@@ -68,18 +67,11 @@ export default function TutorialOverlay() {
   const cursorX = rect ? rect.left + rect.width / 2 : 0;
   const cursorY = rect ? rect.top + rect.height / 2 : 0;
 
-  // Place the text box near the target without covering it; else centre it.
-  let boxStyle: React.CSSProperties;
-  if (rect) {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const below = rect.bottom + BOX_H + 20 < vh;
-    const top = below ? rect.bottom + 18 : Math.max(16, rect.top - BOX_H - 18);
-    const left = Math.min(Math.max(rect.left + rect.width / 2 - BOX_W / 2, 16), vw - BOX_W - 16);
-    boxStyle = { position: 'fixed', left, top, width: BOX_W, maxWidth: 'calc(100vw - 32px)' };
-  } else {
-    boxStyle = { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: BOX_W, maxWidth: 'calc(100vw - 32px)' };
-  }
+  // The text box stays centred for every step; only the cursor + ring move.
+  const boxStyle: React.CSSProperties = {
+    position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+    width: BOX_W, maxWidth: 'calc(100vw - 32px)',
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.45)' }}>

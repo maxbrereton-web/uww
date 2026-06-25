@@ -1,6 +1,6 @@
 import type React from 'react';
-import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, X, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useStore } from '../../store';
 import type { EventTemplate, DocTemplate, EventType, Priority } from '../../types';
 import { eventTypeLabel, genId } from '../../data/utils';
@@ -104,37 +104,117 @@ function EditEventTemplateModal({ tpl, onClose }: { tpl: EventTemplate; onClose:
 
 function EditDocTemplateModal({ tpl, onClose }: { tpl: DocTemplate; onClose: () => void }) {
   const updateTemplate = useStore(s => s.updateTemplate);
+  const ref = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(tpl.name);
-  const [content, setContent] = useState(tpl.content);
+  const [active, setActive] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (ref.current) ref.current.innerHTML = tpl.content || '';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const refreshActive = () => {
+    try {
+      setActive({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        strike: document.queryCommandState('strikeThrough'),
+        left: document.queryCommandState('justifyLeft'),
+        center: document.queryCommandState('justifyCenter'),
+        right: document.queryCommandState('justifyRight'),
+      });
+    } catch { /* ignore */ }
+  };
+
+  const exec = (cmd: string, value?: string) => {
+    ref.current?.focus();
+    document.execCommand(cmd, false, value);
+    refreshActive();
+  };
 
   const save = () => {
-    updateTemplate('docs', tpl.id, { name: name.trim() || 'Untitled', content });
+    updateTemplate('docs', tpl.id, { name: name.trim() || 'Untitled', content: ref.current?.innerHTML || '' });
     onClose();
   };
 
-  return modalShell('Edit Document', onClose, (
-    <>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Name</label>
-        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
-      </div>
-      <div>
-        <label style={labelStyle}>Content</label>
-        <textarea
-          value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder="Document content"
-          rows={8}
-          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: 140 }}
+  const tbBtn = (on?: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 36, height: 36,
+    padding: '0 9px', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontWeight: 800,
+    border: '1px solid ' + (on ? 'var(--accent-deep)' : 'var(--border-strong)'),
+    background: on ? 'color-mix(in srgb, var(--accent-deep) 28%, var(--control))' : 'var(--control)',
+    color: 'var(--text)',
+  });
+  const sep = <div style={{ width: 1, height: 24, background: 'var(--border-strong)', margin: '0 4px', alignSelf: 'center' }} />;
+  const selStyle: React.CSSProperties = { height: 36, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--control)', color: 'var(--text)', fontSize: 13, padding: '0 10px', cursor: 'pointer' };
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.6)', zIndex: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px', overflowY: 'auto' }}
+      onClick={onClose}
+    >
+      <div className="uww-overlay" style={{ width: '100%', maxWidth: 1000, display: 'flex', flexDirection: 'column', gap: 12 }} onClick={e => e.stopPropagation()}>
+        {/* Header bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 14 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#0089CF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, flex: '0 0 36px' }}>D</div>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Template name"
+            style={{ flex: 1, padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 16, fontWeight: 700, outline: 'none', fontFamily: 'inherit' }}
+          />
+          <button onClick={save} style={{ ...condensed, fontSize: 15, padding: '0 26px', height: 44, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px rgba(241,90,34,.32)' }}>Save</button>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 6 }} aria-label="Close"><X size={22} /></button>
+        </div>
+
+        {/* Toolbar */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: 10 }}>
+          <select defaultValue="P" title="Text style" onChange={e => exec('formatBlock', e.target.value)} style={selStyle}>
+            <option value="P">Style</option>
+            <option value="P">Paragraph</option>
+            <option value="H1">Heading 1</option>
+            <option value="H2">Heading 2</option>
+            <option value="H3">Heading 3</option>
+          </select>
+          <select defaultValue="3" title="Font size" onChange={e => exec('fontSize', e.target.value)} style={selStyle}>
+            <option value="3">Size</option>
+            <option value="1">XS</option>
+            <option value="2">S</option>
+            <option value="3">M</option>
+            <option value="4">L</option>
+            <option value="5">XL</option>
+            <option value="6">XXL</option>
+          </select>
+          {sep}
+          <button style={tbBtn(active.bold)} title="Bold" onMouseDown={e => { e.preventDefault(); exec('bold'); }}>B</button>
+          <button style={{ ...tbBtn(active.italic), fontStyle: 'italic' }} title="Italic" onMouseDown={e => { e.preventDefault(); exec('italic'); }}>I</button>
+          <button style={{ ...tbBtn(active.underline), textDecoration: 'underline' }} title="Underline" onMouseDown={e => { e.preventDefault(); exec('underline'); }}>U</button>
+          <button style={{ ...tbBtn(active.strike), textDecoration: 'line-through' }} title="Strikethrough" onMouseDown={e => { e.preventDefault(); exec('strikeThrough'); }}>S</button>
+          {sep}
+          <button style={tbBtn(active.left)} title="Align left" onMouseDown={e => { e.preventDefault(); exec('justifyLeft'); }}><AlignLeft size={16} /></button>
+          <button style={tbBtn(active.center)} title="Align center" onMouseDown={e => { e.preventDefault(); exec('justifyCenter'); }}><AlignCenter size={16} /></button>
+          <button style={tbBtn(active.right)} title="Align right" onMouseDown={e => { e.preventDefault(); exec('justifyRight'); }}><AlignRight size={16} /></button>
+          {sep}
+          <button style={tbBtn()} title="Bulleted list" onMouseDown={e => { e.preventDefault(); exec('insertUnorderedList'); }}>•</button>
+          <button style={tbBtn()} title="Numbered list" onMouseDown={e => { e.preventDefault(); exec('insertOrderedList'); }}>1.</button>
+          {sep}
+          <button style={tbBtn()} title="Quote" onMouseDown={e => { e.preventDefault(); exec('formatBlock', 'blockquote'); }}>“</button>
+          <button style={tbBtn()} title="Divider" onMouseDown={e => { e.preventDefault(); exec('insertHorizontalRule'); }}>—</button>
+          <button style={tbBtn()} title="Clear formatting" onMouseDown={e => { e.preventDefault(); exec('removeFormat'); }}>✕</button>
+        </div>
+
+        {/* White page */}
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          onKeyUp={refreshActive}
+          onMouseUp={refreshActive}
+          style={{ background: '#fff', color: '#111', fontFamily: 'Georgia, "Times New Roman", serif', width: '100%', minHeight: '64vh', padding: 44, borderRadius: 8, outline: 'none', lineHeight: 1.6, fontSize: 16, marginBottom: 8 }}
         />
       </div>
-    </>
-  ), (
-    <>
-      <button onClick={onClose} style={{ ...condensed, fontSize: 12, padding: '9px 16px', cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--control)', color: 'var(--text)' }}>Cancel</button>
-      <button onClick={save} style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}>Save</button>
-    </>
-  ));
+    </div>
+  );
 }
 
 const cardStyle: React.CSSProperties = {

@@ -1,7 +1,7 @@
 import type React from 'react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore, currentUser } from '../../store';
-import { defaultHandle } from '../../data/mentions';
+import { buildHandleMap, defaultHandle } from '../../data/mentions';
 import Avatar from './Avatar';
 
 interface Props {
@@ -22,10 +22,10 @@ const condensedLabel: React.CSSProperties = {
 };
 
 /**
- * Text field (input or textarea) with an @-mention autocomplete.
- * Typing "@" opens a "Notify someone" picker; choosing a person inserts
- * their @handle. Mentions are turned into notifications by the store when
- * the message is actually sent.
+ * Text field (input or textarea) with an @-mention autocomplete and a live
+ * highlight layer: a fully-typed @handle that matches a real person shows in
+ * orange + bold; the instant it stops matching (e.g. a character is deleted)
+ * it reverts to standard text, as does everything before and after it.
  */
 export default function MentionInput({
   value, onChange, onEnter, placeholder, multiline, rows = 1, style, autoFocus, disabled,
@@ -33,7 +33,10 @@ export default function MentionInput({
   const staff = useStore(s => s.staff);
   const usernames = useStore(s => s.usernames);
   const cu = useStore(currentUser);
+  const handleMap = useMemo(() => buildHandleMap(staff, usernames), [staff, usernames]);
+
   const ref = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
 
   // query === null → dropdown closed. Otherwise it's the text typed after "@".
   const [query, setQuery] = useState<string | null>(null);
@@ -55,10 +58,16 @@ export default function MentionInput({
     if (m) { setQuery(m[1]); setSel(0); } else setQuery(null);
   };
 
+  const syncScroll = () => {
+    const el = ref.current, bd = backdropRef.current;
+    if (el && bd) { bd.scrollTop = el.scrollTop; bd.scrollLeft = el.scrollLeft; }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const val = e.target.value;
     onChange(val);
     detect(val, e.target.selectionStart ?? val.length);
+    requestAnimationFrame(syncScroll);
   };
 
   const insert = (id: string, name: string) => {
@@ -74,7 +83,7 @@ export default function MentionInput({
     onChange(newVal);
     setQuery(null);
     const newCaret = start + handle.length + 2;
-    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(newCaret, newCaret); });
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(newCaret, newCaret); syncScroll(); });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -90,6 +99,46 @@ export default function MentionInput({
     }
   };
 
+  // Highlight layer: only fully-valid @handles get orange+bold; everything else is plain.
+  const highlighted = useMemo(() => {
+    const parts = value.split(/(@[a-z0-9._]+)/gi);
+    return parts.map((part, i) => {
+      const m = /^@([a-z0-9._]+)$/i.exec(part);
+      if (m && handleMap[m[1].toLowerCase()]) {
+        return <span key={i} style={{ color: 'var(--accent)', fontWeight: 700 }}>{part}</span>;
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }, [value, handleMap]);
+
+  // Box styling (background / border / radius / size) lives on both layers so they
+  // line up exactly; the real field is transparent so the highlight shows through.
+  const sharedBox: React.CSSProperties = {
+    ...style,
+    margin: 0,
+    lineHeight: 1.45,
+    whiteSpace: multiline ? 'pre-wrap' : 'pre',
+    overflowWrap: multiline ? 'break-word' : 'normal',
+    boxSizing: 'border-box',
+  };
+
+  const backdropStyle: React.CSSProperties = {
+    ...sharedBox,
+    position: 'absolute', inset: 0, zIndex: 0,
+    color: 'var(--text)',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+    userSelect: 'none',
+  };
+
+  const fieldStyle: React.CSSProperties = {
+    ...sharedBox,
+    position: 'relative', zIndex: 1,
+    background: 'transparent',
+    color: 'transparent',
+    caretColor: 'var(--text)',
+  };
+
   const common = {
     ref: ref as never,
     value,
@@ -98,12 +147,13 @@ export default function MentionInput({
     disabled,
     onChange: handleChange,
     onKeyDown: handleKeyDown,
+    onScroll: syncScroll,
     onBlur: () => setTimeout(() => setQuery(null), 130),
-    style,
+    style: fieldStyle,
   };
 
   return (
-    <div style={{ position: 'relative', flex: style?.flex ?? 1, minWidth: 0 }}>
+    <div style={{ position: 'relative', flex: style?.flex ?? 1, minWidth: 0, display: 'block' }}>
       {query !== null && candidates.length > 0 && (
         <div
           style={{
@@ -134,6 +184,14 @@ export default function MentionInput({
           </div>
         </div>
       )}
+
+      {/* Highlight backdrop (mirrors the field, shows coloured mentions).
+          The real field sits on top, transparent, so its native placeholder shows when empty. */}
+      <div ref={backdropRef} aria-hidden style={backdropStyle}>
+        {highlighted}
+        {multiline ? '\n' : null}
+      </div>
+
       {multiline
         ? <textarea {...common} rows={rows} />
         : <input {...common} />}

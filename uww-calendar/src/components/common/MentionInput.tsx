@@ -99,13 +99,22 @@ export default function MentionInput({
     }
   };
 
-  // Highlight layer: only fully-valid @handles get orange+bold; everything else is plain.
+  // Highlight layer: only fully-valid @handles get orange + bold; everything else is plain.
+  // The weight is faked with text-shadow (not font-weight) so glyph advance widths stay
+  // identical to the real input — otherwise the caret would drift past the bold text.
   const highlighted = useMemo(() => {
     const parts = value.split(/(@[a-z0-9._]+)/gi);
     return parts.map((part, i) => {
       const m = /^@([a-z0-9._]+)$/i.exec(part);
       if (m && handleMap[m[1].toLowerCase()]) {
-        return <span key={i} style={{ color: 'var(--accent)', fontWeight: 700 }}>{part}</span>;
+        return (
+          <span
+            key={i}
+            style={{ color: 'var(--accent)', textShadow: '0.4px 0 0 currentColor, -0.4px 0 0 currentColor' }}
+          >
+            {part}
+          </span>
+        );
       }
       return <span key={i}>{part}</span>;
     });

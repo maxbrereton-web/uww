@@ -236,9 +236,9 @@ const persisted = loadPersisted();
 const defaultNewEventForm = (): NewEventForm => ({
   name: '',
   priority: 'mid',
-  eventType: 'wrestling',
-  competitionType: 'World Championships',
-  ageRange: 'Senior',
+  eventType: '',
+  competitionType: '',
+  ageRange: '',
   location: '',
   start: '',
   end: '',
@@ -349,7 +349,7 @@ export const useStore = create<StoreState>((set, get) => {
       const f = s.newEventForm;
       const id = 'ev' + Date.now();
       const ev: UWWEvent = {
-        id, name: f.name || 'Untitled Event', priority: f.priority, eventType: f.eventType,
+        id, name: f.name || 'Untitled Event', priority: f.priority, eventType: f.eventType || 'wrestling',
         competitionType: f.competitionType, ageRange: f.ageRange, location: f.location,
         start: f.start, end: f.end || f.start, staff: [], barColor: f.barColor || undefined, archived: false,
       };

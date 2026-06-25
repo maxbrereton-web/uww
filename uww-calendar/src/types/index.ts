@@ -155,7 +155,7 @@ export interface ContextMenuData {
 export interface NewEventForm {
   name: string;
   priority: Priority;
-  eventType: EventType;
+  eventType: EventType | '';
   competitionType: string;
   ageRange: string;
   location: string;

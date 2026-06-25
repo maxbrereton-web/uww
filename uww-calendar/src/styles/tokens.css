@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap');
 
 :root {
+  color-scheme: dark;
   --bg: #0c0d12;
   --sidebar: #08090d;
   --topbar: #0f1016;
@@ -22,6 +23,7 @@
 }
 
 [data-app-theme="light"] {
+  color-scheme: light;
   --bg: #e9ebf0;
   --sidebar: #ffffff;
   --topbar: #ffffff;
@@ -69,6 +71,12 @@ button {
 input, select, textarea {
   font-family: inherit;
   color: inherit;
+}
+
+/* Ensure native dropdown option lists stay readable in both themes */
+option {
+  background: var(--panel);
+  color: var(--text);
 }
 
 a { color: var(--accent); }

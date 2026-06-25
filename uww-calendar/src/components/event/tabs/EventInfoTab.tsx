@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { FileText, Link2, X, Plus } from 'lucide-react';
-import { useStore, isAdmin } from '../../../store';
+import { useStore, isAdmin, currentUser } from '../../../store';
 import type { EventType, InfoItem } from '../../../types';
 import Avatar from '../../common/Avatar';
 import {
@@ -42,6 +42,8 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
   const removeEventAdmin = useStore(s => s.removeEventAdmin);
   const openDocEditor = useStore(s => s.openDocEditor);
   const openLinkSetup = useStore(s => s.openLinkSetup);
+  const openDmWith = useStore(s => s.openDmWith);
+  const cu = useStore(currentUser);
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [adminAddOpen, setAdminAddOpen] = useState(false);
@@ -244,7 +246,7 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
             const removable = admin && !m?.admin;
             return (
               <div key={id} style={pillStyle}>
-                <Avatar staffId={id} size={26} />
+                <Avatar staffId={id} size={26} onClick={id === cu ? undefined : () => openDmWith(id)} />
                 <span style={{ fontSize: 12.5, fontWeight: 700 }}>{m?.name || id}</span>
                 {removable && (
                   <button type="button" onClick={() => removeEventAdmin(eventId, id)} style={pillRemoveStyle} title="Remove as event admin">

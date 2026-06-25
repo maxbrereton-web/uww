@@ -66,7 +66,7 @@ export default function EventTeamTab({ eventId }: { eventId: string }) {
                   padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap',
                 }}
               >
-                <Avatar staffId={id} size={40} />
+                <Avatar staffId={id} size={40} onClick={() => openDmWith(id)} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>
                     {nameOf(id)} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>wants to join this event</span>

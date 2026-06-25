@@ -311,6 +311,7 @@ export default function StaffPage() {
   const staff = useStore(s => s.staff);
   const updateStaff = useStore(s => s.updateStaff);
   const removeStaff = useStore(s => s.removeStaff);
+  const openDmWith = useStore(s => s.openDmWith);
   const [showModal, setShowModal] = useState(false);
 
   if (role !== 'admin') {
@@ -366,7 +367,7 @@ export default function StaffPage() {
                 >
                   <td style={bodyCell}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Avatar staffId={m.id} size={28} />
+                      <Avatar staffId={m.id} size={28} onClick={() => openDmWith(m.id)} />
                       <span style={{ ...condensed, fontSize: 12 }}>{m.name}</span>
                     </div>
                   </td>

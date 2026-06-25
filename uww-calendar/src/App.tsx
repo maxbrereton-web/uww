@@ -17,6 +17,7 @@ import LinkSetup from './components/overlays/LinkSetup';
 import ProfileModal from './components/overlays/ProfileModal';
 import ContextMenu from './components/overlays/ContextMenu';
 import TutorialOverlay from './components/overlays/TutorialOverlay';
+import DmOverlay from './components/overlays/DmOverlay';
 
 export default function App() {
   const theme = useStore(s => s.theme);
@@ -32,6 +33,7 @@ export default function App() {
   const docEditorOpen = useStore(s => s.docEditorOpen);
   const linkSetupOpen = useStore(s => s.linkSetupOpen);
   const contextMenu = useStore(s => s.contextMenu);
+  const dmOverlay = useStore(s => s.dmOverlay);
 
   useEffect(() => {
     document.body.style.background = 'var(--bg)';
@@ -78,6 +80,7 @@ export default function App() {
       {docEditorOpen && <DocEditor />}
       {linkSetupOpen && <LinkSetup />}
       {contextMenu && <ContextMenu />}
+      {dmOverlay && <DmOverlay />}
     </div>
   );
 }

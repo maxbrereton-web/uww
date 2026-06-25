@@ -31,6 +31,7 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
   const setCommentDraft = useStore(s => s.setCommentDraft);
   const setNewRequest = useStore(s => s.setNewRequest);
   const addNewRequest = useStore(s => s.addNewRequest);
+  const openDmWith = useStore(s => s.openDmWith);
 
   if (!detail) return null;
   const nameOf = (id: string) => staff.find(m => m.id === id)?.name || id;
@@ -59,7 +60,7 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
                 const own = msg.from === cu;
                 return (
                   <div key={i} style={{ display: 'flex', gap: 9, flexDirection: own ? 'row-reverse' : 'row' }}>
-                    <Avatar staffId={msg.from} size={30} />
+                    <Avatar staffId={msg.from} size={30} onClick={own ? undefined : () => openDmWith(msg.from)} />
                     <div
                       style={{
                         maxWidth: '78%', background: own ? 'var(--accent-deep)' : 'var(--panel-2)',

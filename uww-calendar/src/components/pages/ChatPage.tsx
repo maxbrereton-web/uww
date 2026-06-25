@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Search, Users, X, ArrowLeft, Paperclip, Camera } from 'lucide-react';
-import { useStore, currentUser } from '../../store';
+import { useStore, currentUser, effectiveView } from '../../store';
 import type { Message } from '../../types';
 import Avatar from '../common/Avatar';
 import AttachmentCard from '../common/AttachmentCard';
@@ -285,7 +285,7 @@ function Composer({ onSend }: { onSend: (text: string, att?: Att) => void }) {
 }
 
 export default function ChatPage() {
-  const viewMode = useStore(s => s.viewMode);
+  const viewMode = useStore(effectiveView);
   const staff = useStore(s => s.staff);
   const groups = useStore(s => s.groups);
   const dms = useStore(s => s.dms);

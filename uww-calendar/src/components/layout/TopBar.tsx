@@ -56,6 +56,7 @@ export default function TopBar() {
 
       {/* Center title (absolutely centered) */}
       <div
+        className="uww-topbar-title"
         style={{
           position: 'absolute',
           left: 0,
@@ -89,7 +90,7 @@ export default function TopBar() {
             color: 'var(--text)',
           }}
         >
-          <span style={{ fontSize: 13.5, fontWeight: 700 }}>Notifications</span>
+          <span className="uww-notif-label" style={{ fontSize: 13.5, fontWeight: 700 }}>Notifications</span>
           <Bell size={16} />
           <span
             style={{

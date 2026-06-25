@@ -68,6 +68,7 @@ export interface StoreState {
   // UI state
   theme: 'dark' | 'light';
   viewMode: 'web' | 'mobile';
+  isNarrow: boolean;
   role: Role;
   page: Page;
   calView: CalView;
@@ -127,6 +128,7 @@ export interface StoreState {
   // Actions
   toggleTheme: () => void;
   setViewMode: (m: 'web' | 'mobile') => void;
+  setIsNarrow: (b: boolean) => void;
   setRole: (r: Role) => void;
   setPage: (p: Page) => void;
   setCalView: (v: CalView) => void;
@@ -271,6 +273,7 @@ export const useStore = create<StoreState>((set, get) => {
   return {
     theme: persisted.theme || 'dark',
     viewMode: 'web',
+    isNarrow: typeof window !== 'undefined' && window.innerWidth < 760,
     role: 'admin',
     page: 'calendar',
     calView: 'calendar',
@@ -327,6 +330,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     toggleTheme: () => commit(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
     setViewMode: (m) => set({ viewMode: m }),
+    setIsNarrow: (b) => set({ isNarrow: b }),
     setRole: (r) => set({ role: r, selectedEventId: null, page: 'calendar', showNotifications: false }),
     setPage: (p) => set({ page: p, selectedEventId: null, showNotifications: false }),
     setCalView: (v) => set({ calView: v }),
@@ -646,6 +650,11 @@ export function isAdmin(state: StoreState): boolean {
   if (state.role === 'admin') return true;
   const ev = state.events.find(e => e.id === state.selectedEventId);
   return !!ev?.eventAdmins?.includes(ROLE_USER[state.role]);
+}
+
+/** Effective view: a real narrow screen forces mobile; otherwise the manual toggle. */
+export function effectiveView(state: StoreState): 'web' | 'mobile' {
+  return state.isNarrow ? 'mobile' : state.viewMode;
 }
 
 export function visibleEvents(state: StoreState): UWWEvent[] {

@@ -145,17 +145,10 @@ a { color: var(--accent); }
   animation: uwwSpin .8s linear infinite;
 }
 
-/* Mobile view mode */
-.app-root.mobile {
-  max-width: 430px;
-  margin: 0 auto;
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
+/* ===== Mobile layout (real phones + the desktop preview frame) ===== */
+.app-root.mobilelayout { overflow-x: hidden; }
 
-.app-root.mobile .uww-sidebar {
+.app-root.mobilelayout .uww-sidebar {
   position: fixed;
   bottom: 0;
   left: 50%;
@@ -168,34 +161,56 @@ a { color: var(--accent); }
   justify-content: space-around;
   padding: 6px 4px env(safe-area-inset-bottom, 8px);
   border-top: 1px solid var(--border);
+  border-right: none !important;
   z-index: 60;
 }
 
-.app-root.mobile .uww-sidebar-top,
-.app-root.mobile .uww-sidebar-bottom-controls {
+.app-root.mobilelayout .uww-sidebar-top,
+.app-root.mobilelayout .uww-sidebar-bottom-controls {
   display: none !important;
 }
 
-.app-root.mobile .uww-nav {
+.app-root.mobilelayout .uww-nav {
   flex-direction: row !important;
   width: 100%;
   justify-content: space-around;
   gap: 0 !important;
+  padding: 0 !important;
 }
 
-.app-root.mobile .uww-nav-item {
+.app-root.mobilelayout .uww-nav-item {
+  flex: 1;
   flex-direction: column;
   font-size: 9px !important;
-  gap: 2px !important;
-  padding: 4px !important;
+  gap: 3px !important;
+  padding: 5px 2px !important;
+  text-align: center;
 }
 
-.app-root.mobile .uww-nav-item .uww-nav-accent { display: none; }
+.app-root.mobilelayout .uww-nav-item .uww-nav-accent { display: none; }
 
-.app-root.mobile .uww-main {
-  padding-bottom: 64px;
+.app-root.mobilelayout .uww-main {
+  padding-bottom: 66px;
 }
 
-.app-root.mobile .uww-hide-mobile { display: none !important; }
+/* Top bar: bell only + smaller title on mobile */
+.app-root.mobilelayout .uww-notif-label { display: none !important; }
+.app-root.mobilelayout .uww-topbar-title { font-size: 15px !important; }
+
+/* Floating profile button — mobile only */
+.uww-mobile-me { display: none; }
+.app-root.mobilelayout .uww-mobile-me { display: flex; }
+
+.app-root.mobilelayout .uww-hide-mobile { display: none !important; }
 .uww-show-mobile { display: none; }
-.app-root.mobile .uww-show-mobile { display: block; }
+.app-root.mobilelayout .uww-show-mobile { display: flex; }
+
+/* Desktop preview device frame */
+.app-root.frame {
+  max-width: 430px;
+  margin: 0 auto;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}

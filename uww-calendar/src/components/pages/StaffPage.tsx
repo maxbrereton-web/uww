@@ -1,7 +1,7 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
 import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
-import { useStore } from '../../store';
+import { useStore, effectiveView } from '../../store';
 import type { StaffType, StaffMember } from '../../types';
 import { SKILLSETS } from '../../data/seed';
 import Avatar from '../common/Avatar';
@@ -307,7 +307,7 @@ function MobileCard({ member }: { member: StaffMember }) {
 
 export default function StaffPage() {
   const role = useStore(s => s.role);
-  const viewMode = useStore(s => s.viewMode);
+  const viewMode = useStore(effectiveView);
   const staff = useStore(s => s.staff);
   const updateStaff = useStore(s => s.updateStaff);
   const removeStaff = useStore(s => s.removeStaff);

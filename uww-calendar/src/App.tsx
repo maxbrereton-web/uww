@@ -30,6 +30,7 @@ export default function App() {
   const view = useStore(effectiveView);
   const setIsNarrow = useStore(s => s.setIsNarrow);
   const restoreSession = useStore(s => s.restoreSession);
+  const initChat = useStore(s => s.initChat);
   const cu = useStore(currentUser);
   const openProfile = useStore(s => s.openProfile);
   const page = useStore(s => s.page);
@@ -53,6 +54,11 @@ export default function App() {
   useEffect(() => {
     restoreSession();
   }, [restoreSession]);
+
+  // Once signed in, sync chat from Supabase and listen for live updates.
+  useEffect(() => {
+    if (authedUserId) initChat();
+  }, [authedUserId, initChat]);
 
   // Auto-detect a narrow (real phone) screen and switch to the mobile layout.
   useEffect(() => {

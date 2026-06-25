@@ -76,6 +76,7 @@ export interface Availability {
 }
 
 export interface Message {
+  id?: string;            // present once synced through Supabase (used to de-dupe realtime echoes)
   from: string;
   text: string;
   time: string;

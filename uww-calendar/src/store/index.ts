@@ -19,6 +19,16 @@ const ROLE_USER: Record<Role, string> = { admin: 'jh', staff: 'sr', freelance: '
 const SUPER_ADMIN = { name: 'admin', password: 'UWW' };
 const SUPER_ADMIN_EMAIL = 'admin@uww.app';
 
+// ---- Chat sync (Supabase) ----
+interface MsgRow { id: string; channel: string; sender: string; body: string; attachment: { name: string; url: string } | null; }
+const dmKey = (a: string, b: string) => [a, b].sort().join('|');
+function newMsgId(): string {
+  try { return crypto.randomUUID(); } catch { return 'm' + Date.now() + Math.random().toString(36).slice(2); }
+}
+function rowToMessage(row: MsgRow): Message {
+  return { id: row.id, from: row.sender, text: row.body || '', time: 'now', att: row.attachment || undefined };
+}
+
 /** Role a real (non-super-admin) user lands in, based on their staff record. */
 function roleForMember(m: StaffMember): Role {
   if (m.admin) return 'admin';
@@ -183,6 +193,7 @@ export interface StoreState {
   // Actions
   login: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string; needsSetup?: string }>;
   restoreSession: () => Promise<void>;
+  initChat: () => Promise<void>;
   completeInvite: (userId: string, data: { name: string; username: string; password: string; photo?: string }) => void;
   logout: () => void;
   toggleTheme: () => void;
@@ -308,6 +319,7 @@ const defaultNewEventForm = (): NewEventForm => ({
 });
 
 export const useStore = create<StoreState>((set, get) => {
+  let chatInited = false;
   const commit = (fn: (s: StoreState) => Partial<StoreState>) => {
     set(fn as never);
     scheduleSave(get);
@@ -347,6 +359,27 @@ export const useStore = create<StoreState>((set, get) => {
       staff: st.staff.some(m => m.id === uid) ? st.staff : [...st.staff, stub],
       authedUserId: uid, isSuperAdmin: false, role: 'staff', page: 'calendar', selectedEventId: null,
     }));
+  };
+
+  // Merge a chat row arriving from Supabase (history or realtime) into local state,
+  // de-duped by message id so our own optimistic copy isn't doubled.
+  const mergeRemoteMessage = (row: MsgRow) => {
+    const msg = rowToMessage(row);
+    const ch = row.channel;
+    if (ch.startsWith('dm:')) {
+      const key = ch.slice(3);
+      commit(st => {
+        const arr = st.dms[key] || [];
+        if (arr.some(m => m.id === row.id)) return {};
+        return { dms: { ...st.dms, [key]: [...arr, msg] } };
+      });
+    } else if (ch.startsWith('grp:')) {
+      const gid = ch.slice(4);
+      commit(st => ({
+        groups: st.groups.map(g =>
+          g.id === gid && !g.messages.some(m => m.id === row.id) ? { ...g, messages: [...g.messages, msg] } : g),
+      }));
+    }
   };
 
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
@@ -456,6 +489,24 @@ export const useStore = create<StoreState>((set, get) => {
         const { data } = await supabase.auth.getSession();
         const u = data.session?.user;
         if (u) applyAuthedUser(u.id, u.email || '');
+      } catch { /* ignore */ }
+    },
+    initChat: async () => {
+      if (chatInited) return;
+      chatInited = true;
+      // Pull existing history into local state (de-duped by id).
+      try {
+        const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: true });
+        (data as MsgRow[] | null)?.forEach(mergeRemoteMessage);
+      } catch { /* offline — local only */ }
+      // Subscribe to new messages so they appear live on every device.
+      try {
+        supabase
+          .channel('messages-rt')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            mergeRemoteMessage(payload.new as MsgRow);
+          })
+          .subscribe();
       } catch { /* ignore */ }
     },
     completeInvite: (userId, data) => {
@@ -658,14 +709,16 @@ export const useStore = create<StoreState>((set, get) => {
 
     sendDm: (toId, text, att) => {
       const s0 = get();
-      const cu = ROLE_USER[s0.role];
-      const msg: Message = { from: cu, text, time: 'now', att };
-      const key = [cu, toId].sort().join('|');
+      const cu = currentUser(s0);
+      const id = newMsgId();
+      const msg: Message = { id, from: cu, text, time: 'now', att };
+      const key = dmKey(cu, toId);
       const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { context: 'a chat' });
       commit(s => ({
         dms: { ...s.dms, [key]: [...(s.dms[key] || []), msg] },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      supabase.from('messages').insert({ id, channel: 'dm:' + key, sender: cu, body: text, attachment: att ?? null }).then(undefined, () => {});
     },
     openDmWith: (userId) => set({ dmOverlay: userId }),
     closeDmOverlay: () => set({ dmOverlay: null }),
@@ -673,14 +726,16 @@ export const useStore = create<StoreState>((set, get) => {
 
     sendGroup: (groupId, text, att) => {
       const s0 = get();
-      const cu = ROLE_USER[s0.role];
-      const msg: Message = { from: cu, text, time: 'now', att };
+      const cu = currentUser(s0);
+      const id = newMsgId();
+      const msg: Message = { id, from: cu, text, time: 'now', att };
       const gName = s0.groups.find(g => g.id === groupId)?.name;
       const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { context: gName });
       commit(s => ({
         groups: s.groups.map(g => g.id === groupId ? { ...g, messages: [...g.messages, msg] } : g),
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      supabase.from('messages').insert({ id, channel: 'grp:' + groupId, sender: cu, body: text, attachment: att ?? null }).then(undefined, () => {});
     },
     createGroup: (name, members, photo) => {
       const id = 'g' + Date.now();

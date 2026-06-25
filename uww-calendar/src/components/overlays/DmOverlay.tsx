@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import { useStore, currentUser } from '../../store';
 import Avatar from '../common/Avatar';
+import AttachmentCard from '../common/AttachmentCard';
 
 type Att = { name: string; url: string };
 
@@ -94,13 +95,8 @@ export default function DmOverlay() {
               <div style={{ maxWidth: '78%' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3, textAlign: own ? 'right' : 'left' }}>{own ? 'You' : nameOf(msg.from)} · {msg.time}</div>
                 <div style={{ padding: '9px 13px', borderRadius: 12, fontSize: 13.5, background: own ? 'var(--accent-deep)' : 'var(--panel-2)', color: own ? '#fff' : 'var(--text)', border: own ? 'none' : '1px solid var(--border)' }}>
-                  {msg.text}
-                  {msg.att && (
-                    <a href={msg.att.url} download={msg.att.name} style={{ marginTop: msg.text ? 6 : 0, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: own ? '#fff' : 'var(--accent)', textDecoration: 'underline', maxWidth: 200 }}>
-                      <Paperclip size={12} />
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.att.name}</span>
-                    </a>
-                  )}
+                  {msg.text && <div>{msg.text}</div>}
+                  {msg.att && <AttachmentCard att={msg.att} own={own} spaced={!!msg.text} />}
                 </div>
               </div>
             </div>

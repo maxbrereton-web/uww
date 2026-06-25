@@ -443,6 +443,37 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
+  // ---- Staff directory sync (so people added/edited on one device appear everywhere) ----
+  type StaffRow = { id: string; data: StaffMember; username: string | null; instagram: string | null };
+  const stripPw = (m: StaffMember): StaffMember => { const c = { ...m }; delete c.password; return c; };
+  const syncStaff = (id: string) => {
+    const s = get();
+    const m = s.staff.find(x => x.id === id);
+    if (!m) return;
+    supabase.from('staff_members').upsert({
+      id, data: stripPw(m), username: s.usernames[id] ?? null, instagram: s.instagram[id] ?? null, updated_at: new Date().toISOString(),
+    }).then(undefined, () => {});
+  };
+  const syncStaffDeleted = (id: string) => {
+    supabase.from('staff_members').delete().eq('id', id).then(undefined, () => {});
+  };
+  const applyStaffRow = (eventType: string, row: StaffRow) => {
+    if (eventType === 'DELETE') {
+      commit(s => ({ staff: s.staff.filter(m => m.id !== row.id) }));
+      return;
+    }
+    commit(s => {
+      // keep any local-only password (used only by the offline fallback login)
+      const member: StaffMember = { ...row.data, password: s.staff.find(m => m.id === row.id)?.password };
+      const staff = s.staff.some(m => m.id === row.id) ? s.staff.map(m => m.id === row.id ? member : m) : [...s.staff, member];
+      return {
+        staff,
+        usernames: { ...s.usernames, [row.id]: row.username || '' },
+        instagram: { ...s.instagram, [row.id]: row.instagram || '' },
+      };
+    });
+  };
+
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
   const localLogin = (identifier: string, password: string): { ok: boolean; error?: string; needsSetup?: string } => {
     const s = get();
@@ -599,6 +630,19 @@ export const useStore = create<StoreState>((set, get) => {
         const { data: dets } = await supabase.from('event_details').select('*');
         (dets as { event_id: string; data: EventDetail }[] | null)?.forEach(r => applyDetailRow(r.event_id, r.data));
       } catch { /* ignore */ }
+      // Shared staff directory.
+      try {
+        const { data: rows, error } = await supabase.from('staff_members').select('*');
+        if (!error && rows) {
+          if (rows.length === 0) {
+            const local = get();
+            const seed = local.staff.map(m => ({ id: m.id, data: stripPw(m), username: local.usernames[m.id] ?? null, instagram: local.instagram[m.id] ?? null }));
+            if (seed.length) await supabase.from('staff_members').upsert(seed).then(undefined, () => {});
+          } else {
+            (rows as StaffRow[]).forEach(r => applyStaffRow('UPDATE', r));
+          }
+        }
+      } catch { /* ignore */ }
       // Live updates to the calendar + event contents for everyone.
       try {
         supabase
@@ -611,6 +655,10 @@ export const useStore = create<StoreState>((set, get) => {
             if (payload.eventType === 'DELETE') return;
             const row = payload.new as { event_id: string; data: EventDetail };
             applyDetailRow(row.event_id, row.data);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, payload => {
+            const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as StaffRow;
+            applyStaffRow(payload.eventType, row);
           })
           .subscribe();
       } catch { /* ignore */ }
@@ -630,6 +678,7 @@ export const useStore = create<StoreState>((set, get) => {
         page: 'calendar',
         selectedEventId: null,
       }));
+      syncStaff(userId);
     },
     logout: () => {
       supabase.auth.signOut().catch(() => {});
@@ -813,9 +862,9 @@ export const useStore = create<StoreState>((set, get) => {
       ...d, posting: { ...d.posting, [day]: (d.posting[day] || []).filter((_, i) => i !== idx) },
     })),
 
-    updateStaff: (staffId, partial) => commit(s => ({ staff: s.staff.map(m => m.id === staffId ? { ...m, ...partial } : m) })),
-    addStaff: (member) => commit(s => ({ staff: [...s.staff, member] })),
-    removeStaff: (staffId) => commit(s => ({ staff: s.staff.filter(m => m.id !== staffId) })),
+    updateStaff: (staffId, partial) => { commit(s => ({ staff: s.staff.map(m => m.id === staffId ? { ...m, ...partial } : m) })); syncStaff(staffId); },
+    addStaff: (member) => { commit(s => ({ staff: [...s.staff, member] })); syncStaff(member.id); },
+    removeStaff: (staffId) => { commit(s => ({ staff: s.staff.filter(m => m.id !== staffId) })); syncStaffDeleted(staffId); },
 
     sendDm: (toId, text, att) => {
       const s0 = get();
@@ -915,8 +964,8 @@ export const useStore = create<StoreState>((set, get) => {
       return { templates: { ...s.templates, docs: [...s.templates.docs, { ...t, id: 'dt' + Date.now(), name: t.name + ' (Copy)' }] } };
     }),
 
-    setUsername: (userId, username) => commit(s => ({ usernames: { ...s.usernames, [userId]: username } })),
-    setInstagram: (userId, handle) => commit(s => ({ instagram: { ...s.instagram, [userId]: handle } })),
+    setUsername: (userId, username) => { commit(s => ({ usernames: { ...s.usernames, [userId]: username } })); syncStaff(userId); },
+    setInstagram: (userId, handle) => { commit(s => ({ instagram: { ...s.instagram, [userId]: handle } })); syncStaff(userId); },
 
     updateNewEventForm: (partial) => set(s => ({ newEventForm: { ...s.newEventForm, ...partial } })),
     setImportPriority: (id, priority) => set(s => ({ importPriorities: { ...s.importPriorities, [id]: priority } })),

@@ -71,7 +71,7 @@ export function initDetail(eventId: string, events: UWWEvent[]): EventDetail {
     detail.posting = {
       "Pre-Event": [{ posted: true, type: "Design", name: "Event Announcement", link: "dropbox.com/uww/announce", athlete: "", caption: "Hype graphic — 1 week out" }],
       "Post-Event": [{ posted: false, type: "Video", name: "Highlights Reel", link: "", athlete: "", caption: "90s recap for socials" }],
-      "2026-07-07": [{ posted: false, type: "Photos", name: "Day 1 Gallery", link: "", athlete: "", caption: "Top moments" }]
+      "2026-07-07": [{ posted: false, type: "Photo", name: "Day 1 Gallery", link: "", athlete: "", caption: "Top moments" }]
     };
     detail.availability = {
       jh: { status: "Available", flights: true },
@@ -98,7 +98,7 @@ export const SKILLSETS = [
   'social video', 'documentary video', 'creative video', 'bts video',
   'design', 'photography', 'creative photography', 'posting', 'social manager',
 ];
-export const POST_TYPES = ['Design', 'Video', 'Photos', 'Story', 'Reel', 'Carousel', 'Graphic', 'Animation'];
+export const POST_TYPES = ['Photo', 'Design', 'Story', 'Video', 'Thumbnail', 'YouTube', 'UWW+', 'Web'];
 
 export const IMPORT_EVENTS = [
   { id: "imp1", name: "Senior World Cup — Istanbul", priority: "top" as const, eventType: "wrestling" as const, competitionType: "World Cup", ageRange: "Senior", location: "Istanbul, TUR", start: "2026-08-15", end: "2026-08-18", staff: [], archived: false },

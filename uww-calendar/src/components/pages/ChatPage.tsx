@@ -1,10 +1,12 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Users, X, ArrowLeft, Paperclip, Camera } from 'lucide-react';
 import { useStore, currentUser, effectiveView } from '../../store';
 import type { Message } from '../../types';
 import Avatar from '../common/Avatar';
 import AttachmentCard from '../common/AttachmentCard';
+import MentionInput from '../common/MentionInput';
+import { buildHandleMap, renderMentionText } from '../../data/mentions';
 
 function InstagramIcon({ size = 18 }: { size?: number }) {
   return (
@@ -265,12 +267,12 @@ function Composer({ onSend }: { onSend: (text: string, att?: Att) => void }) {
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <input
+        <MentionInput
           value={text}
-          placeholder="Write a message…"
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send(); } }}
-          style={{ flex: 1, padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
+          onChange={setText}
+          onEnter={send}
+          placeholder="Write a message…  (@ to tag)"
+          style={{ width: '100%', padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
         />
         <input ref={fileRef} type="file" onChange={onFile} style={{ display: 'none' }} />
         <button type="button" title="Attach a file" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 9, background: att ? 'color-mix(in srgb, var(--accent-deep) 20%, var(--field))' : 'var(--field)', border: '1px solid ' + (att ? 'var(--accent-deep)' : 'var(--border-strong)'), color: att ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
@@ -303,6 +305,7 @@ export default function ChatPage() {
   const setEditGroupModal = useStore(s => s.setEditGroupModal);
 
   const [filter, setFilter] = useState('');
+  const handleMap = useMemo(() => buildHandleMap(staff, usernames), [staff, usernames]);
 
   const q = filter.trim().toLowerCase();
   const handleOf = (id: string) => usernames[id] || (staff.find(m => m.id === id)?.name || id).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -429,8 +432,8 @@ export default function ChatPage() {
             <div key={i} style={{ display: 'flex', justifyContent: own ? 'flex-end' : 'flex-start' }}>
               <div style={{ maxWidth: '72%' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3, textAlign: own ? 'right' : 'left' }}>{own ? 'You' : nameOf(msg.from)}</div>
-                <div style={{ padding: '9px 13px', borderRadius: 12, fontSize: 13.5, background: own ? 'var(--accent-deep)' : 'var(--panel-2)', color: own ? '#fff' : 'var(--text)', border: own ? 'none' : '1px solid var(--border)' }}>
-                  {msg.text && <div>{msg.text}</div>}
+                <div style={{ padding: '9px 13px', borderRadius: 12, fontSize: 13.5, background: own ? 'var(--accent-deep)' : 'var(--panel-2)', color: own ? '#fff' : 'var(--text)', border: own ? 'none' : '1px solid var(--border)', whiteSpace: 'pre-wrap' }}>
+                  {msg.text && <div>{renderMentionText(msg.text, handleMap, own)}</div>}
                   {msg.att && <AttachmentCard att={msg.att} own={own} spaced={!!msg.text} />}
                 </div>
               </div>

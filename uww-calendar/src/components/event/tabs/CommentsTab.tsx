@@ -1,8 +1,11 @@
 import type React from 'react';
+import { useMemo } from 'react';
 import { Paperclip } from 'lucide-react';
 import { useStore, isAdmin, currentUser, effectiveView } from '../../../store';
 import type { Comment } from '../../../types';
 import Avatar from '../../common/Avatar';
+import MentionInput from '../../common/MentionInput';
+import { buildHandleMap, renderMentionText } from '../../../data/mentions';
 
 const composerInput: React.CSSProperties = {
   flex: 1, background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9,
@@ -33,6 +36,8 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
   const setNewRequest = useStore(s => s.setNewRequest);
   const addNewRequest = useStore(s => s.addNewRequest);
   const openDmWith = useStore(s => s.openDmWith);
+  const usernames = useStore(s => s.usernames);
+  const handleMap = useMemo(() => buildHandleMap(staff, usernames), [staff, usernames]);
 
   if (!detail) return null;
   const nameOf = (id: string) => staff.find(m => m.id === id)?.name || id;
@@ -72,7 +77,7 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
                         {nameOf(msg.from)} · {msg.time}
                       </div>
                       <div style={{ fontSize: 13.5, lineHeight: 1.5, color: own ? '#fff' : 'var(--text)', whiteSpace: 'pre-wrap' }}>
-                        {msg.text}
+                        {renderMentionText(msg.text, handleMap, own)}
                       </div>
                     </div>
                   </div>
@@ -83,12 +88,12 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
             {/* Reply composer / re-open */}
             {!resolved ? (
               <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginTop: 13, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-                <input
-                  style={{ ...composerInput, ...(isMobile ? { flex: '1 1 100%' } : {}) }}
-                  placeholder="Write a reply…"
+                <MentionInput
+                  style={{ ...composerInput, width: '100%', ...(isMobile ? { flex: '1 1 100%' } : {}) }}
+                  placeholder="Write a reply…  (@ to tag)"
                   value={thread.draft}
-                  onChange={e => setCommentDraft(eventId, thread.id, e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && thread.draft.trim()) addCommentReply(eventId, thread.id, thread.draft.trim()); }}
+                  onChange={v => setCommentDraft(eventId, thread.id, v)}
+                  onEnter={() => { if (thread.draft.trim()) addCommentReply(eventId, thread.id, thread.draft.trim()); }}
                 />
                 <button type="button" style={clipBtn} title="Attach a file"><Paperclip size={17} /></button>
                 <button type="button" style={{ ...orangeBtn, ...(isMobile ? { flex: 1 } : {}) }} disabled={!thread.draft.trim()} onClick={() => thread.draft.trim() && addCommentReply(eventId, thread.id, thread.draft.trim())}>
@@ -119,12 +124,12 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
 
       {/* New comment composer */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-        <input
-          style={{ ...composerInput, ...(isMobile ? { flex: '1 1 100%' } : {}) }}
-          placeholder="Message the admin team…"
+        <MentionInput
+          style={{ ...composerInput, width: '100%', ...(isMobile ? { flex: '1 1 100%' } : {}) }}
+          placeholder="Message the admin team…  (@ to tag)"
           value={detail.newRequest}
-          onChange={e => setNewRequest(eventId, e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && detail.newRequest.trim()) addNewRequest(eventId, detail.newRequest.trim()); }}
+          onChange={v => setNewRequest(eventId, v)}
+          onEnter={() => { if (detail.newRequest.trim()) addNewRequest(eventId, detail.newRequest.trim()); }}
         />
         <button type="button" style={clipBtn} title="Attach a file"><Paperclip size={17} /></button>
         <button type="button" style={{ ...orangeBtn, ...(isMobile ? { flex: 1 } : {}) }} disabled={!detail.newRequest.trim()} onClick={() => detail.newRequest.trim() && addNewRequest(eventId, detail.newRequest.trim())}>

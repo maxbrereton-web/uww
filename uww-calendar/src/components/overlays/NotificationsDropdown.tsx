@@ -20,6 +20,7 @@ export default function NotificationsDropdown() {
   const role = useStore(s => s.role);
   const cu = useStore(currentUser);
   const selectEvent = useStore(s => s.selectEvent);
+  const setPage = useStore(s => s.setPage);
   const actionNotif = useStore(s => s.actionNotif);
   const clearNotif = useStore(s => s.clearNotif);
   const clearAllNotifs = useStore(s => s.clearAllNotifs);
@@ -28,7 +29,9 @@ export default function NotificationsDropdown() {
   const [sortMode, setSortMode] = useState<'priority' | 'newest'>('priority');
 
   const allEvents = [...events, ...archivedEvents];
-  const eventName = (id: string) => allEvents.find(e => e.id === id)?.name || 'Event';
+  const hasEvent = (id: string) => allEvents.some(e => e.id === id);
+  const headerFor = (n: Notification) =>
+    hasEvent(n.eventId) ? allEvents.find(e => e.id === n.eventId)!.name : (n.kind === 'mention' ? 'Mention' : 'Event');
 
   // role-filtered, un-cleared
   const filtered = notifications.filter(n =>
@@ -48,7 +51,8 @@ export default function NotificationsDropdown() {
   const onItem = (n: Notification) => {
     if (n.actioned) return;
     actionNotif(n.id);
-    selectEvent(n.eventId, n.targetTab);
+    if (hasEvent(n.eventId)) selectEvent(n.eventId, n.targetTab);
+    else if (n.kind === 'mention') { selectEvent(null); setPage('chat'); }
     toggleNotifications();
   };
 
@@ -97,7 +101,7 @@ export default function NotificationsDropdown() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ width: 7, height: 7, borderRadius: '50%', background: dot, flex: '0 0 7px', ...(n.pri === 'top' && !n.actioned ? { animation: 'goldRipple 2.2s ease-out infinite, goldGlow 2.2s ease-in-out infinite' } : {}) }} />
                     <div style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {eventName(n.eventId)}
+                      {headerFor(n)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>

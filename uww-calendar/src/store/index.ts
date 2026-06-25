@@ -9,10 +9,37 @@ import {
   SEED_EVENTS, SEED_ARCHIVED, SEED_STAFF, SEED_NOTIFICATIONS, SEED_TEMPLATES,
   SEED_USERNAMES, SEED_INSTAGRAM, SEED_GROUPS, IMPORT_EVENTS, initDetail,
 } from '../data/seed';
+import { resolveMentionIds } from '../data/mentions';
 
 const LS_KEY = 'uww_cal_v2';
 
 const ROLE_USER: Record<Role, string> = { admin: 'jh', staff: 'sr', freelance: 'aa' };
+
+let mentionSeq = 0;
+/** Build a notification for each person tagged via @handle in `text` (excluding the sender). */
+function makeMentionNotifs(
+  text: string,
+  fromId: string,
+  staff: StaffMember[],
+  usernames: Record<string, string>,
+  opts: { eventId?: string; targetTab?: NotifTab; context?: string },
+): Notification[] {
+  const ids = resolveMentionIds(text, staff, usernames).filter(id => id !== fromId);
+  if (ids.length === 0) return [];
+  const fromName = staff.find(m => m.id === fromId)?.name || fromId;
+  const ctx = opts.context ? ` in ${opts.context}` : '';
+  return ids.map(id => ({
+    id: `mn${Date.now()}_${mentionSeq++}`,
+    eventId: opts.eventId || '',
+    title: `${fromName} mentioned you${ctx}`,
+    kind: 'mention' as const,
+    pri: 'mid' as Priority,
+    deadlineLabel: '',
+    targetTab: opts.targetTab || 'notifications',
+    forRole: 'both' as const,
+    mentionFor: id,
+  }));
+}
 
 interface PersistShape {
   theme: 'dark' | 'light';
@@ -401,7 +428,9 @@ export const useStore = create<StoreState>((set, get) => {
       const isAdminUser = s.role === 'admin';
       return {
         notifications: s.notifications.map(n => {
-          const forMe = n.forRole === 'both' || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff') || n.mentionFor === cu;
+          const forMe = n.mentionFor
+            ? n.mentionFor === cu
+            : (n.forRole === 'both' || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff'));
           return forMe ? { ...n, cleared: true } : n;
         }),
       };
@@ -504,19 +533,30 @@ export const useStore = create<StoreState>((set, get) => {
     removeStaff: (staffId) => commit(s => ({ staff: s.staff.filter(m => m.id !== staffId) })),
 
     sendDm: (toId, text, att) => {
-      const cu = ROLE_USER[get().role];
+      const s0 = get();
+      const cu = ROLE_USER[s0.role];
       const msg: Message = { from: cu, text, time: 'now', att };
       const key = [cu, toId].sort().join('|');
-      commit(s => ({ dms: { ...s.dms, [key]: [...(s.dms[key] || []), msg] } }));
+      const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { context: 'a chat' });
+      commit(s => ({
+        dms: { ...s.dms, [key]: [...(s.dms[key] || []), msg] },
+        notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
+      }));
     },
     openDmWith: (userId) => set({ dmOverlay: userId }),
     closeDmOverlay: () => set({ dmOverlay: null }),
     setChatActive: (id) => set({ chatActive: id }),
 
     sendGroup: (groupId, text, att) => {
-      const cu = ROLE_USER[get().role];
+      const s0 = get();
+      const cu = ROLE_USER[s0.role];
       const msg: Message = { from: cu, text, time: 'now', att };
-      commit(s => ({ groups: s.groups.map(g => g.id === groupId ? { ...g, messages: [...g.messages, msg] } : g) }));
+      const gName = s0.groups.find(g => g.id === groupId)?.name;
+      const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { context: gName });
+      commit(s => ({
+        groups: s.groups.map(g => g.id === groupId ? { ...g, messages: [...g.messages, msg] } : g),
+        notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
+      }));
     },
     createGroup: (name, members, photo) => {
       const id = 'g' + Date.now();
@@ -601,12 +641,23 @@ export const useStore = create<StoreState>((set, get) => {
     setShowReminderPanel: (open) => set({ showReminderPanel: open }),
 
     addCommentReply: (eventId, threadId, text) => {
-      const cu = ROLE_USER[get().role];
-      patchDetail(eventId, d => ({
-        ...d,
-        requests: d.requests.map(c => c.id === threadId
-          ? { ...c, draft: '', messages: [...c.messages, { from: cu, text, time: 'now' }] }
-          : c),
+      const s0 = get();
+      const cu = ROLE_USER[s0.role];
+      const evName = [...s0.events, ...s0.archivedEvents].find(e => e.id === eventId)?.name;
+      const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { eventId, targetTab: 'requests', context: evName });
+      ensureDetail(eventId);
+      const cur = get().detail[eventId];
+      commit(s => ({
+        detail: {
+          ...s.detail,
+          [eventId]: {
+            ...cur,
+            requests: cur.requests.map(c => c.id === threadId
+              ? { ...c, draft: '', messages: [...c.messages, { from: cu, text, time: 'now' }] }
+              : c),
+          },
+        },
+        notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
     },
     resolveComment: (eventId, threadId) => patchDetail(eventId, d => ({
@@ -620,11 +671,22 @@ export const useStore = create<StoreState>((set, get) => {
     })),
     setNewRequest: (eventId, text) => patchDetail(eventId, d => ({ ...d, newRequest: text })),
     addNewRequest: (eventId, text) => {
-      const cu = ROLE_USER[get().role];
-      patchDetail(eventId, d => ({
-        ...d,
-        newRequest: '',
-        requests: [...d.requests, { id: 'rq' + Date.now(), from: cu, status: 'open', draft: '', messages: [{ from: cu, text, time: 'now' }] }],
+      const s0 = get();
+      const cu = ROLE_USER[s0.role];
+      const evName = [...s0.events, ...s0.archivedEvents].find(e => e.id === eventId)?.name;
+      const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { eventId, targetTab: 'requests', context: evName });
+      ensureDetail(eventId);
+      const cur = get().detail[eventId];
+      commit(s => ({
+        detail: {
+          ...s.detail,
+          [eventId]: {
+            ...cur,
+            newRequest: '',
+            requests: [...cur.requests, { id: 'rq' + Date.now(), from: cu, status: 'open', draft: '', messages: [{ from: cu, text, time: 'now' }] }],
+          },
+        },
+        notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
     },
 
@@ -696,10 +758,9 @@ export function eventNotifCount(eventId: string, state: StoreState): number {
   return state.notifications.filter(n => {
     if (n.eventId !== eventId) return false;
     if (n.actioned || n.cleared) return false;
-    const forMe = n.forRole === 'both'
-      || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff')
-      || n.mentionFor === cu;
-    return forMe;
+    if (n.mentionFor) return n.mentionFor === cu;
+    return n.forRole === 'both'
+      || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff');
   }).length;
 }
 
@@ -708,9 +769,9 @@ export function roleNotifs(state: StoreState): Notification[] {
   const isAdminUser = state.role === 'admin';
   return state.notifications.filter(n => {
     if (n.cleared) return false;
+    if (n.mentionFor) return n.mentionFor === cu;
     return n.forRole === 'both'
-      || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff')
-      || n.mentionFor === cu;
+      || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff');
   });
 }
 

@@ -121,6 +121,7 @@ export default function EventDetail() {
               <button
                 key={tab}
                 type="button"
+                data-tut={`tab-${tab}`}
                 onClick={() => setEventTab(tab)}
                 style={{
                   flex: 1,

@@ -92,6 +92,7 @@ export default function Sidebar() {
               <button
                 key={item.page}
                 className="uww-nav-item"
+                data-tut={`nav-${item.page}`}
                 onClick={() => setPage(item.page)}
                 style={{
                   position: 'relative',

@@ -233,6 +233,7 @@ export default function CalendarGrid() {
 
       {/* Calendar panel */}
       <div
+        data-tut="calendar"
         style={{
           background: 'var(--panel)',
           border: '1px solid var(--border)',
@@ -351,6 +352,7 @@ export default function CalendarGrid() {
                   return (
                     <div
                       key={ev.id + '-' + wi}
+                      data-tut={ev.id === 'ev1' && roundL ? 'cal-event' : undefined}
                       onClick={() => selectEvent(ev.id)}
                       onContextMenu={e => {
                         e.preventDefault();

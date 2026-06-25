@@ -76,6 +76,7 @@ export default function TopBar() {
         <button
           onClick={toggleNotifications}
           title="Notifications"
+          data-tut="bell"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

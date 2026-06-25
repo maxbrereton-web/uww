@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import type React from 'react';
+import { useRef, useState } from 'react';
 import { X, Paperclip } from 'lucide-react';
 import { useStore, currentUser } from '../../store';
 import Avatar from '../common/Avatar';
+
+type Att = { name: string; url: string };
 
 function dmKey(a: string, b: string): string {
   return [a, b].sort().join('|');
@@ -29,6 +32,8 @@ export default function DmOverlay() {
   const setChatActive = useStore(s => s.setChatActive);
   const selectEvent = useStore(s => s.selectEvent);
   const [text, setText] = useState('');
+  const [att, setAtt] = useState<Att | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!userId || userId === cu) return null;
   const member = staff.find(m => m.id === userId);
@@ -37,7 +42,21 @@ export default function DmOverlay() {
   const messages = dms[dmKey(cu, userId)] || [];
   const nameOf = (id: string) => staff.find(m => m.id === id)?.name || id;
 
-  const send = () => { const v = text.trim(); if (!v) return; sendDm(userId, v); setText(''); };
+  const send = () => {
+    const v = text.trim();
+    if (!v && !att) return;
+    sendDm(userId, v, att || undefined);
+    setText('');
+    setAtt(null);
+  };
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAtt({ name: file.name, url: reader.result as string });
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
   const maximize = () => {
     close();
     selectEvent(null);
@@ -76,7 +95,12 @@ export default function DmOverlay() {
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3, textAlign: own ? 'right' : 'left' }}>{own ? 'You' : nameOf(msg.from)} · {msg.time}</div>
                 <div style={{ padding: '9px 13px', borderRadius: 12, fontSize: 13.5, background: own ? 'var(--accent-deep)' : 'var(--panel-2)', color: own ? '#fff' : 'var(--text)', border: own ? 'none' : '1px solid var(--border)' }}>
                   {msg.text}
-                  {msg.att && <div style={{ marginTop: 4, fontSize: 11, opacity: 0.85, textDecoration: 'underline' }}>{msg.att.name}</div>}
+                  {msg.att && (
+                    <a href={msg.att.url} download={msg.att.name} style={{ marginTop: msg.text ? 6 : 0, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: own ? '#fff' : 'var(--accent)', textDecoration: 'underline', maxWidth: 200 }}>
+                      <Paperclip size={12} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.att.name}</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
@@ -85,20 +109,30 @@ export default function DmOverlay() {
       </div>
 
       {/* Composer */}
-      <div style={{ display: 'flex', gap: 9, padding: 12, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
-        <input
-          value={text}
-          placeholder="Write a message…"
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send(); } }}
-          style={{ flex: 1, padding: '11px 13px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
-        />
-        <button type="button" title="Attach a file" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 9, background: 'var(--field)', border: '1px solid var(--border-strong)', color: 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
-          <Paperclip size={17} />
-        </button>
-        <button onClick={send} style={{ fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em', fontSize: 13, padding: '0 18px', height: 42, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', flex: '0 0 auto' }}>
-          Send
-        </button>
+      <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+        {att && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, padding: '7px 11px', background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9 }}>
+            <Paperclip size={14} color="var(--accent)" />
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</span>
+            <X size={15} style={{ cursor: 'pointer', color: 'var(--text-muted)', flex: '0 0 auto' }} onClick={() => setAtt(null)} />
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+          <input
+            value={text}
+            placeholder="Write a message…"
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send(); } }}
+            style={{ flex: 1, padding: '11px 13px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
+          />
+          <input ref={fileRef} type="file" onChange={onFile} style={{ display: 'none' }} />
+          <button type="button" title="Attach a file" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 9, background: att ? 'color-mix(in srgb, var(--accent-deep) 20%, var(--field))' : 'var(--field)', border: '1px solid ' + (att ? 'var(--accent-deep)' : 'var(--border-strong)'), color: att ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
+            <Paperclip size={17} />
+          </button>
+          <button onClick={send} style={{ fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em', fontSize: 13, padding: '0 18px', height: 42, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', flex: '0 0 auto' }}>
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

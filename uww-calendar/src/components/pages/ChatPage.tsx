@@ -231,24 +231,54 @@ function EditGroupModal() {
   );
 }
 
-function Composer({ onSend }: { onSend: (text: string) => void }) {
+type Att = { name: string; url: string };
+
+function Composer({ onSend }: { onSend: (text: string, att?: Att) => void }) {
   const [text, setText] = useState('');
-  const send = () => { const v = text.trim(); if (!v) return; onSend(v); setText(''); };
+  const [att, setAtt] = useState<Att | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const send = () => {
+    const v = text.trim();
+    if (!v && !att) return;
+    onSend(v, att || undefined);
+    setText('');
+    setAtt(null);
+  };
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setAtt({ name: file.name, url: reader.result as string });
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   return (
-    <div style={{ display: 'flex', gap: 10, padding: 14, borderTop: '1px solid var(--border)', alignItems: 'center' }}>
-      <input
-        value={text}
-        placeholder="Write a message…"
-        onChange={e => setText(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send(); } }}
-        style={{ flex: 1, padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
-      />
-      <button type="button" title="Attach a file" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 9, background: 'var(--field)', border: '1px solid var(--border-strong)', color: 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
-        <Paperclip size={17} />
-      </button>
-      <button onClick={send} style={{ ...condensed, fontSize: 13, padding: '0 22px', height: 44, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', flex: '0 0 auto' }}>
-        Send
-      </button>
+    <div style={{ padding: 14, borderTop: '1px solid var(--border)' }}>
+      {att && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, padding: '7px 11px', background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9 }}>
+          <Paperclip size={14} color="var(--accent)" />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</span>
+          <X size={15} style={{ cursor: 'pointer', color: 'var(--text-muted)', flex: '0 0 auto' }} onClick={() => setAtt(null)} />
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <input
+          value={text}
+          placeholder="Write a message…"
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); send(); } }}
+          style={{ flex: 1, padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
+        />
+        <input ref={fileRef} type="file" onChange={onFile} style={{ display: 'none' }} />
+        <button type="button" title="Attach a file" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 9, background: att ? 'color-mix(in srgb, var(--accent-deep) 20%, var(--field))' : 'var(--field)', border: '1px solid ' + (att ? 'var(--accent-deep)' : 'var(--border-strong)'), color: att ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
+          <Paperclip size={17} />
+        </button>
+        <button onClick={send} style={{ ...condensed, fontSize: 13, padding: '0 22px', height: 44, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', flex: '0 0 auto' }}>
+          Send
+        </button>
+      </div>
     </div>
   );
 }
@@ -300,9 +330,9 @@ export default function ChatPage() {
     const arr = dms[dmKey(cu, otherId)];
     return arr && arr.length ? arr[arr.length - 1].text : 'Start a conversation';
   };
-  const onSend = (txt: string) => {
-    if (isGroup && activeGroup) sendGroup(activeGroup.id, txt);
-    else if (activeStaff) sendDm(activeStaff.id, txt);
+  const onSend = (txt: string, att?: Att) => {
+    if (isGroup && activeGroup) sendGroup(activeGroup.id, txt, att);
+    else if (activeStaff) sendDm(activeStaff.id, txt, att);
   };
 
   const renderSidebar = () => (
@@ -400,7 +430,12 @@ export default function ChatPage() {
                 <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3, textAlign: own ? 'right' : 'left' }}>{own ? 'You' : nameOf(msg.from)} · {msg.time}</div>
                 <div style={{ padding: '9px 13px', borderRadius: 12, fontSize: 13.5, background: own ? 'var(--accent-deep)' : 'var(--panel-2)', color: own ? '#fff' : 'var(--text)', border: own ? 'none' : '1px solid var(--border)' }}>
                   {msg.text}
-                  {msg.att && <div style={{ marginTop: 4, fontSize: 11, opacity: 0.85, textDecoration: 'underline' }}>{msg.att.name}</div>}
+                  {msg.att && (
+                    <a href={msg.att.url} download={msg.att.name} style={{ marginTop: msg.text ? 6 : 0, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: own ? '#fff' : 'var(--accent)', textDecoration: 'underline', maxWidth: 200 }}>
+                      <Paperclip size={12} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.att.name}</span>
+                    </a>
+                  )}
                 </div>
               </div>
             </div>

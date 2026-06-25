@@ -1,5 +1,5 @@
 import { Bell } from 'lucide-react';
-import { useStore, isAdmin, currentUser } from '../../../store';
+import { useStore, isAdmin, currentUser, effectiveView } from '../../../store';
 import type { AvailStatus } from '../../../types';
 import Avatar from '../../common/Avatar';
 import { eventDayList, formatDate, formatDayMon } from '../../../data/utils';
@@ -28,6 +28,7 @@ export default function AvailabilityTab({ eventId }: { eventId: string }) {
   const ev = useStore(s => s.events.find(e => e.id === eventId) || s.archivedEvents.find(e => e.id === eventId));
   const detail = useStore(s => s.detail[eventId]);
   const admin = useStore(isAdmin);
+  const isMobile = useStore(effectiveView) === 'mobile';
   const cu = useStore(currentUser);
   const staff = useStore(s => s.staff);
   const showReminderPanel = useStore(s => s.showReminderPanel);
@@ -106,12 +107,14 @@ export default function AvailabilityTab({ eventId }: { eventId: string }) {
       )}
 
       {/* Availability table */}
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, background: 'var(--panel-2)', borderBottom: '1px solid var(--border)', fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 700 }}>
-          <div style={{ padding: '12px 16px' }}>Staff Member</div>
-          <div style={{ padding: '12px 16px' }}>Availability</div>
-          <div style={{ padding: '12px 16px' }}>Flights Booked</div>
-        </div>
+      <div style={{ border: isMobile ? 'none' : '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', display: isMobile ? 'flex' : 'block', flexDirection: 'column', gap: isMobile ? 12 : 0 }}>
+        {!isMobile && (
+          <div style={{ display: 'grid', gridTemplateColumns: GRID, background: 'var(--panel-2)', borderBottom: '1px solid var(--border)', fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 700 }}>
+            <div style={{ padding: '12px 16px' }}>Staff Member</div>
+            <div style={{ padding: '12px 16px' }}>Availability</div>
+            <div style={{ padding: '12px 16px' }}>Flights Booked</div>
+          </div>
+        )}
 
         {rows.map(member => {
           const a = detail?.availability[member.id] || { status: 'Available' as AvailStatus, flights: false };
@@ -130,49 +133,74 @@ export default function AvailabilityTab({ eventId }: { eventId: string }) {
           const showDayGrid = isLimited && editable && !confirmedDays;
           const showEditDays = editable && isLimited && confirmedDays;
 
-          return (
-            <div key={member.id} style={{ borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center' }}>
-                <div style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar staffId={member.id} size={30} confirmed onClick={() => openDmWith(member.id)} />
-                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 700 }}>{staff.find(s => s.id === member.id)?.name || member.id}</span>
-                    {bracket && <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{bracket}</span>}
-                    {showEditDays && (
-                      <span onClick={() => updateAvailability(eventId, member.id, { daysConfirmed: false })} style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>Edit days</span>
-                    )}
-                  </div>
-                </div>
-                <div style={{ padding: '11px 16px' }}>
-                  <select
-                    value={a.status}
-                    disabled={!editable}
-                    onChange={e => updateAvailability(eventId, member.id, { status: e.target.value as AvailStatus })}
-                    style={{ background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 7, padding: '5px 9px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit', ...(editable ? {} : { opacity: 0.6, cursor: 'default' }) }}
-                  >
-                    <option value="Available">Available</option>
-                    <option value="Limited">Limited</option>
-                  </select>
-                </div>
-                <div style={{ padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
-                  <div
-                    onClick={editable && !a.flightNotReq ? () => updateAvailability(eventId, member.id, { flights: !a.flights }) : undefined}
-                    style={{ width: 22, height: 22, borderRadius: 5, border: '1.5px solid var(--border-strong)', background: a.flights && !a.flightNotReq ? 'var(--accent-deep)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, cursor: editable && !a.flightNotReq ? 'pointer' : 'default', opacity: editable && !a.flightNotReq ? 1 : 0.4 }}
-                  >
-                    {a.flights && !a.flightNotReq ? '✓' : ''}
-                  </div>
-                  <div onClick={editable ? () => updateAvailability(eventId, member.id, { flightNotReq: !a.flightNotReq }) : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: editable ? 'pointer' : 'default' }}>
-                    <div style={{ width: 17, height: 17, borderRadius: 4, border: '1.5px solid var(--border-strong)', background: a.flightNotReq ? 'var(--text-muted)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, flex: '0 0 17px' }}>
-                      {a.flightNotReq ? '✓' : ''}
-                    </div>
-                    <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>(flight not needed)</span>
-                  </div>
-                </div>
+          const nameCell = (
+            <div style={{ padding: isMobile ? '0' : '11px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Avatar staffId={member.id} size={30} confirmed onClick={() => openDmWith(member.id)} />
+              <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700 }}>{staff.find(s => s.id === member.id)?.name || member.id}</span>
+                {bracket && <span style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>{bracket}</span>}
+                {showEditDays && (
+                  <span onClick={() => updateAvailability(eventId, member.id, { daysConfirmed: false })} style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}>Edit days</span>
+                )}
               </div>
+            </div>
+          );
+          const availCell = (
+            <select
+              value={a.status}
+              disabled={!editable}
+              onChange={e => updateAvailability(eventId, member.id, { status: e.target.value as AvailStatus })}
+              style={{ background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 7, padding: isMobile ? '8px 9px' : '5px 9px', color: 'var(--text)', fontSize: 12.5, fontFamily: 'inherit', width: isMobile ? '100%' : 'auto', ...(editable ? {} : { opacity: 0.6, cursor: 'default' }) }}
+            >
+              <option value="Available">Available</option>
+              <option value="Limited">Limited</option>
+            </select>
+          );
+          const flightsCell = (
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 18 : 28, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div
+                  onClick={editable && !a.flightNotReq ? () => updateAvailability(eventId, member.id, { flights: !a.flights }) : undefined}
+                  style={{ width: 22, height: 22, borderRadius: 5, border: '1.5px solid var(--border-strong)', background: a.flights && !a.flightNotReq ? 'var(--accent-deep)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, cursor: editable && !a.flightNotReq ? 'pointer' : 'default', opacity: editable && !a.flightNotReq ? 1 : 0.4 }}
+                >
+                  {a.flights && !a.flightNotReq ? '✓' : ''}
+                </div>
+                {isMobile && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Booked</span>}
+              </div>
+              <div onClick={editable ? () => updateAvailability(eventId, member.id, { flightNotReq: !a.flightNotReq }) : undefined} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: editable ? 'pointer' : 'default' }}>
+                <div style={{ width: 17, height: 17, borderRadius: 4, border: '1.5px solid var(--border-strong)', background: a.flightNotReq ? 'var(--text-muted)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, flex: '0 0 17px' }}>
+                  {a.flightNotReq ? '✓' : ''}
+                </div>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>(flight not needed)</span>
+              </div>
+            </div>
+          );
+
+          return (
+            <div key={member.id} style={isMobile ? { border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--panel-2)' } : { borderBottom: '1px solid var(--border)' }}>
+              {isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                  {nameCell}
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 800, marginBottom: 5 }}>Availability</div>
+                    {availCell}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 800, marginBottom: 7 }}>Flights Booked</div>
+                    {flightsCell}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: GRID, alignItems: 'center' }}>
+                  {nameCell}
+                  <div style={{ padding: '11px 16px' }}>{availCell}</div>
+                  <div style={{ padding: '11px 16px' }}>{flightsCell}</div>
+                </div>
+              )}
 
               {/* Limited day picker (only the member, while unconfirmed) */}
               {showDayGrid && (
-                <div style={{ padding: '0 16px 14px 56px' }}>
+                <div style={{ padding: isMobile ? '13px 0 0' : '0 16px 14px 56px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
                     <span style={{ fontSize: 11, color: '#E0A100', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em' }}>Limited —</span>
                     <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>Tap the days you are available, then confirm.</span>

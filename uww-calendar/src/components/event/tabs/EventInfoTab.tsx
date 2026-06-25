@@ -6,10 +6,9 @@ import type { EventType, InfoItem } from '../../../types';
 import Avatar from '../../common/Avatar';
 import {
   formatDayMon, eventTypeLabel, priorityColor, priorityLabel, eventSolidColor,
+  compTypesFor, eventHasAge, compHasRegion,
 } from '../../../data/utils';
-import {
-  EVENT_TYPES, AGE_RANGES, COMPETITION_TYPES_WRESTLING, COMPETITION_TYPES_CONTINENTAL,
-} from '../../../data/seed';
+import { EVENT_TYPES, AGE_RANGES, REGIONS } from '../../../data/seed';
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
@@ -49,7 +48,7 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
 
   if (!ev) return null;
 
-  const compOptions = ev.eventType === 'continental' ? COMPETITION_TYPES_CONTINENTAL : COMPETITION_TYPES_WRESTLING;
+  const compOptions = compTypesFor(ev.eventType);
   const infoItems = detail?.infoItems || [];
   const accent = eventSolidColor(ev);
 
@@ -73,25 +72,26 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
       onChange: v => updateEvent(eventId, { eventType: v as EventType, competitionType: '' }),
     },
   ];
-  if (ev.eventType !== 'documentary' && ev.eventType !== 'devcamp') {
+  if (compOptions.length > 0) {
     chips.push({
       k: 'Competition', value: ev.competitionType || '—', editor: 'select', selectVal: ev.competitionType,
       opts: compOptions.map(c => ({ value: c, label: c })),
-      onChange: v => updateEvent(eventId, { competitionType: v }),
+      onChange: v => updateEvent(eventId, { competitionType: v, ...(v === 'Ranking Series' ? { ageRange: 'Senior' } : {}), ...(compHasRegion(v) ? {} : { location: '' }) }),
     });
   }
-  if (ev.eventType === 'wrestling') {
+  if (compHasRegion(ev.competitionType)) {
     chips.push({
-      k: 'Age Range', value: ev.ageRange || '—', editor: 'select', selectVal: ev.ageRange,
+      k: 'Region', value: ev.location || '—', editor: 'select', selectVal: ev.location,
+      opts: REGIONS.map(l => ({ value: l, label: l })),
+      onChange: v => updateEvent(eventId, { location: v }),
+    });
+  }
+  if (eventHasAge(ev.eventType)) {
+    chips.push({
+      k: 'Age Range', value: ev.competitionType === 'Ranking Series' ? 'Senior' : (ev.ageRange || '—'),
+      editor: ev.competitionType === 'Ranking Series' ? undefined : 'select', selectVal: ev.ageRange,
       opts: AGE_RANGES.map(a => ({ value: a, label: a })),
       onChange: v => updateEvent(eventId, { ageRange: v }),
-    });
-  }
-  if (/Continental/i.test(ev.competitionType)) {
-    chips.push({
-      k: 'Location', value: ev.location || '—', editor: 'select', selectVal: ev.location,
-      opts: ['Euros', 'Pans', 'Asians', 'Oceania', 'Africans'].map(l => ({ value: l, label: l })),
-      onChange: v => updateEvent(eventId, { location: v }),
     });
   }
   chips.push({

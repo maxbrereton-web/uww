@@ -85,10 +85,11 @@ export function initDetail(eventId: string, events: UWWEvent[]): EventDetail {
   return detail;
 }
 
-export const EVENT_TYPES = ['wrestling', 'continental', 'rankingseries', 'documentary', 'devcamp'] as const;
-export const COMPETITION_TYPES_WRESTLING = ['World Championships', 'Continental Championships', 'Ranking Series', 'Grand Prix', 'Open'];
+export const EVENT_TYPES = ['wrestling', 'grappling', 'randoms', 'amma', 'pankration', 'devcamp', 'documentary'] as const;
+export const COMPETITION_TYPES_WRESTLING = ['Continental Championships', 'World Championships', 'Ranking Series'];
 export const COMPETITION_TYPES_CONTINENTAL = ['European Championships', 'Pan American Championships', 'Asian Championships', 'African Championships', 'Oceania Championships'];
-export const AGE_RANGES = ['Senior', 'U23', 'U20', 'U17', 'Cadet'];
+export const AGE_RANGES = ['Senior', 'U23', 'U20', 'U17', 'U15'];
+export const REGIONS = ['Euros', 'Pans', 'Asian', 'Oceania', 'African'];
 export const EVENT_ROLES = ['Designer', 'Photographer', 'Social Video', 'Documentary Video', 'Creative Video', 'Social Manager', 'Posting', 'Creative Photography'];
 
 /** Canonical skillset keys (lowercase). Display via titleCase. Event roles for a

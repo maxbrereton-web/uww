@@ -1,11 +1,9 @@
 import type React from 'react';
 import { X } from 'lucide-react';
 import { useStore } from '../../store';
-import type { EventType, Priority } from '../../types';
-import {
-  EVENT_TYPES, COMPETITION_TYPES_WRESTLING, AGE_RANGES,
-} from '../../data/seed';
-import { eventTypeLabel } from '../../data/utils';
+import type { EventType, Priority, NewEventForm } from '../../types';
+import { EVENT_TYPES, AGE_RANGES, REGIONS } from '../../data/seed';
+import { eventTypeLabel, compTypesFor, eventHasAge, compHasRegion } from '../../data/utils';
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
@@ -37,9 +35,15 @@ export default function NewEventOverlay() {
     color: active ? '#fff' : 'var(--text)',
   });
 
-  const onPickType = (t: EventType) => {
-    if (t === 'rankingseries') update({ eventType: t, ageRange: 'Senior' });
-    else update({ eventType: t });
+  const onPickType = (et: EventType) => {
+    update({ eventType: et, competitionType: '', ageRange: '', location: '' });
+  };
+
+  const onPickComp = (c: string) => {
+    const patch: Partial<NewEventForm> = { competitionType: c };
+    if (c === 'Ranking Series') patch.ageRange = 'Senior';
+    if (!compHasRegion(c)) patch.location = '';
+    update(patch);
   };
 
   return (
@@ -93,59 +97,44 @@ export default function NewEventOverlay() {
 
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>Event Type</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {EVENT_TYPES.map(t => (
-              <button
-                key={t}
-                style={{ ...segBtn(form.eventType === t), flex: '0 1 auto', padding: '8px 12px' }}
-                onClick={() => onPickType(t)}
-              >
-                {eventTypeLabel(t)}
-              </button>
-            ))}
-          </div>
+          <select style={inputStyle} value={form.eventType} onChange={e => onPickType(e.target.value as EventType)}>
+            {EVENT_TYPES.map(t => <option key={t} value={t}>{eventTypeLabel(t)}</option>)}
+          </select>
         </div>
 
-        {form.eventType === 'wrestling' && (
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Competition Type</label>
-              <select
-                style={inputStyle}
-                value={form.competitionType}
-                onChange={e => update({ competitionType: e.target.value })}
-              >
-                {COMPETITION_TYPES_WRESTLING.map(c => <option key={c} value={c}>{c}</option>)}
+        {compTypesFor(form.eventType).length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Competition Type</label>
+            <select style={{ ...inputStyle, color: form.competitionType ? 'var(--text)' : 'var(--text-muted)' }} value={form.competitionType} onChange={e => onPickComp(e.target.value)}>
+              <option value="">Competition type…</option>
+              {compTypesFor(form.eventType).map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        )}
+
+        {compHasRegion(form.competitionType) && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Region</label>
+            <select style={{ ...inputStyle, color: form.location ? 'var(--text)' : 'var(--text-muted)' }} value={form.location} onChange={e => update({ location: e.target.value })}>
+              <option value="">Region…</option>
+              {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        )}
+
+        {eventHasAge(form.eventType) && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Age Range</label>
+            {form.competitionType === 'Ranking Series' ? (
+              <select style={inputStyle} value="Senior" disabled>
+                <option value="Senior">Senior (Ranking Series)</option>
               </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Age Range</label>
-              <select
-                style={inputStyle}
-                value={form.ageRange}
-                onChange={e => update({ ageRange: e.target.value })}
-              >
+            ) : (
+              <select style={{ ...inputStyle, color: form.ageRange ? 'var(--text)' : 'var(--text-muted)' }} value={form.ageRange} onChange={e => update({ ageRange: e.target.value })}>
+                <option value="">Age range…</option>
                 {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
-            </div>
-          </div>
-        )}
-
-        {form.eventType === 'continental' && (
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Location</label>
-            <input
-              style={inputStyle}
-              value={form.location}
-              placeholder="Location"
-              onChange={e => update({ location: e.target.value })}
-            />
-          </div>
-        )}
-
-        {form.eventType === 'rankingseries' && (
-          <div style={{ marginBottom: 16, ...condensed, fontSize: 11, color: 'var(--text-muted)' }}>
-            Age: Senior
+            )}
           </div>
         )}
 

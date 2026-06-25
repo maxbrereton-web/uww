@@ -217,12 +217,32 @@ export function eventSolidColor(ev: UWWEvent): string {
 export function eventTypeLabel(t: string): string {
   switch (t) {
     case 'wrestling': return 'Wrestling';
-    case 'continental': return 'Continental';
-    case 'rankingseries': return 'Ranking Series';
+    case 'grappling': return 'Grappling';
+    case 'randoms': return 'Randoms';
+    case 'amma': return 'AMMA';
+    case 'pankration': return 'Pankration';
+    case 'devcamp': return 'Development Camp';
     case 'documentary': return 'Documentary';
-    case 'devcamp': return 'Dev Camp';
     default: return t;
   }
+}
+
+/** Competition-type options for an event type (empty = no competition: dev camp / documentary). */
+export function compTypesFor(et: string): string[] {
+  if (et === 'wrestling') return ['Continental Championships', 'World Championships', 'Ranking Series'];
+  if (et === 'randoms') return ['Youth Olympic Games', 'Asian Games'];
+  if (et === 'grappling' || et === 'amma' || et === 'pankration') return ['Continental Championships', 'World Championships'];
+  return [];
+}
+
+/** Only wrestling carries age ranges. */
+export function eventHasAge(et: string): boolean {
+  return et === 'wrestling';
+}
+
+/** Continental Championships (any discipline) get a region selector. */
+export function compHasRegion(comp: string): boolean {
+  return comp === 'Continental Championships';
 }
 
 export function sortEvents(events: UWWEvent[], key: SortKey, dir: 'asc' | 'desc', detail: Record<string, EventDetail>): UWWEvent[] {

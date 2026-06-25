@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, X, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useStore } from '../../store';
 import type { EventTemplate, DocTemplate, EventType, Priority } from '../../types';
-import { eventTypeLabel, genId } from '../../data/utils';
-import { AGE_RANGES, COMPETITION_TYPES_WRESTLING, COMPETITION_TYPES_CONTINENTAL } from '../../data/seed';
+import { eventTypeLabel, genId, compTypesFor, eventHasAge, compHasRegion } from '../../data/utils';
+import { AGE_RANGES, REGIONS, EVENT_TYPES } from '../../data/seed';
 import PriorityDot from '../common/PriorityDot';
 
 const BAR_COLORS = [
@@ -27,26 +27,38 @@ const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
 };
 
-const EVENT_TYPE_OPTS: Array<EventType | ''> = ['', 'wrestling', 'continental', 'rankingseries', 'documentary', 'devcamp'];
 const PRIORITIES: Priority[] = ['top', 'mid', 'low'];
 
 function EditEventTemplateModal({ tpl, onClose }: { tpl: EventTemplate; onClose: () => void }) {
   const updateTemplate = useStore(s => s.updateTemplate);
   const [name, setName] = useState(tpl.name);
-  const [eventType, setEventType] = useState<EventType | ''>(tpl.eventType || 'wrestling');
+  const [eventType, setEventType] = useState<EventType>((tpl.eventType || 'wrestling') as EventType);
   const [competitionType, setCompetitionType] = useState(tpl.competitionType);
-  const [ageRange, setAgeRange] = useState(tpl.ageRange);
-  const [useAge, setUseAge] = useState(!!tpl.ageRange);
+  const [ageRange, setAgeRange] = useState(tpl.ageRange || 'Senior');
+  const [region, setRegion] = useState(tpl.region || '');
   const [priority, setPriority] = useState<Priority>(tpl.priority);
   const [barColor, setBarColor] = useState(tpl.barColor || '');
 
-  const compOpts = eventType === 'continental' ? COMPETITION_TYPES_CONTINENTAL : COMPETITION_TYPES_WRESTLING;
-  const noComp = eventType === 'documentary' || eventType === 'devcamp';
+  const compOpts = compTypesFor(eventType);
+  const showComp = compOpts.length > 0;
+  const showAge = eventHasAge(eventType);
+  const rankingLocked = competitionType === 'Ranking Series';
+  const showRegion = compHasRegion(competitionType);
+
+  const pickType = (et: EventType) => { setEventType(et); setCompetitionType(''); setRegion(''); };
+  const pickComp = (c: string) => {
+    setCompetitionType(c);
+    if (c === 'Ranking Series') setAgeRange('Senior');
+    if (!compHasRegion(c)) setRegion('');
+  };
 
   const save = () => {
     updateTemplate('events', tpl.id, {
-      name: name.trim() || 'Untitled', eventType, competitionType: noComp ? '' : competitionType,
-      ageRange: useAge ? ageRange : '', priority, barColor,
+      name: name.trim() || 'Untitled', eventType,
+      competitionType: showComp ? competitionType : '',
+      ageRange: showAge ? ageRange : '',
+      region: showRegion ? region : '',
+      priority, barColor,
     });
     onClose();
   };
@@ -77,27 +89,36 @@ function EditEventTemplateModal({ tpl, onClose }: { tpl: EventTemplate; onClose:
           })}
         </div>
 
-        <select value={eventType} onChange={e => setEventType(e.target.value as EventType | '')} style={{ ...tplSelect, marginBottom: 14 }}>
-          {EVENT_TYPE_OPTS.filter(Boolean).map(t => <option key={t} value={t}>{eventTypeLabel(t as EventType)}</option>)}
+        <select value={eventType} onChange={e => pickType(e.target.value as EventType)} style={{ ...tplSelect, marginBottom: 14 }}>
+          {EVENT_TYPES.map(t => <option key={t} value={t}>{eventTypeLabel(t)}</option>)}
         </select>
 
-        {!noComp && (
-          <select value={competitionType} onChange={e => setCompetitionType(e.target.value)} style={{ ...tplSelect, marginBottom: 14, color: competitionType ? 'var(--text)' : 'var(--text-muted)' }}>
+        {showComp && (
+          <select value={competitionType} onChange={e => pickComp(e.target.value)} style={{ ...tplSelect, marginBottom: 14, color: competitionType ? 'var(--text)' : 'var(--text-muted)' }}>
             <option value="">Competition type…</option>
             {compOpts.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <select value={ageRange} disabled={!useAge} onChange={e => setAgeRange(e.target.value)} style={{ ...tplSelect, flex: 1, color: ageRange ? 'var(--text)' : 'var(--text-muted)', opacity: useAge ? 1 : 0.5 }}>
-            <option value="">Age range…</option>
-            {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
+        {showRegion && (
+          <select value={region} onChange={e => setRegion(e.target.value)} style={{ ...tplSelect, marginBottom: 14, color: region ? 'var(--text)' : 'var(--text-muted)' }}>
+            <option value="">Region…</option>
+            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <div onClick={() => setUseAge(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
-            <div style={{ width: 22, height: 22, borderRadius: 6, border: '1.5px solid ' + (useAge ? 'var(--accent-deep)' : 'var(--border-strong)'), background: useAge ? 'var(--accent-deep)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13 }}>{useAge ? '✓' : ''}</div>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Use</span>
-          </div>
-        </div>
+        )}
+
+        {showAge && (
+          rankingLocked ? (
+            <select value="Senior" disabled style={{ ...tplSelect, marginBottom: 18, opacity: 0.6 }}>
+              <option value="Senior">Senior (Ranking Series)</option>
+            </select>
+          ) : (
+            <select value={ageRange} onChange={e => setAgeRange(e.target.value)} style={{ ...tplSelect, marginBottom: 18, color: ageRange ? 'var(--text)' : 'var(--text-muted)' }}>
+              <option value="">Age range…</option>
+              {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )
+        )}
 
         <label style={tplLabel}>Calendar Bar Colour</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>

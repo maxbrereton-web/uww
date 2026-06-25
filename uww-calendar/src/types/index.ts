@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'staff' | 'freelance';
 export type Priority = 'top' | 'mid' | 'low';
-export type EventType = 'wrestling' | 'continental' | 'rankingseries' | 'documentary' | 'devcamp';
+export type EventType = 'wrestling' | 'grappling' | 'randoms' | 'amma' | 'pankration' | 'devcamp' | 'documentary';
 export type MemberStatus = 'invited' | 'pending' | 'confirmed';
 export type AvailStatus = 'Available' | 'Limited';
 export type StaffType = 'Staff' | 'Freelance';
@@ -128,6 +128,7 @@ export interface EventTemplate {
   eventType: EventType | '';
   competitionType: string;
   ageRange: string;
+  region?: string;
   priority: Priority;
   barColor?: string;
 }

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useState } from 'react';
-import { Plus, X, Pencil, Copy, Trash2 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useStore } from '../../store';
 import type { EventTemplate, DocTemplate, EventType, Priority } from '../../types';
 import { eventTypeLabel, genId } from '../../data/utils';
@@ -21,12 +21,6 @@ const labelStyle: React.CSSProperties = {
 
 const EVENT_TYPE_OPTS: Array<EventType | ''> = ['', 'wrestling', 'continental', 'rankingseries', 'documentary', 'devcamp'];
 const PRIORITIES: Priority[] = ['top', 'mid', 'low'];
-
-const iconBtn: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 5, ...condensed, fontSize: 10,
-  padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)',
-  background: 'var(--control)', color: 'var(--text)', cursor: 'pointer',
-};
 
 function modalShell(title: string, onClose: () => void, body: React.ReactNode, footer: React.ReactNode) {
   return (
@@ -144,12 +138,22 @@ function EditDocTemplateModal({ tpl, onClose }: { tpl: DocTemplate; onClose: () 
 }
 
 const cardStyle: React.CSSProperties = {
-  background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12,
-  padding: 16, display: 'flex', flexDirection: 'column', gap: 10,
+  background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 14,
+  padding: 18, display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 420,
 };
 
-const metaRow: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)',
+const sectionLabel: React.CSSProperties = {
+  fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.1em', fontWeight: 700,
+};
+
+const actionBtn: React.CSSProperties = {
+  ...condensed, fontSize: 12, padding: '10px 20px', borderRadius: 9,
+  border: '1px solid var(--border-strong)', background: 'var(--control)', color: 'var(--text)', cursor: 'pointer',
+};
+
+const removeBtn: React.CSSProperties = {
+  padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)',
+  background: 'var(--control)', color: '#ED1C24', cursor: 'pointer', fontSize: 16, lineHeight: 1,
 };
 
 export default function TemplatesPage() {
@@ -171,7 +175,7 @@ export default function TemplatesPage() {
   }
 
   function newEventTemplate() {
-    addTemplate('events', { id: genId('et'), name: 'New Template', eventType: '', competitionType: '', ageRange: '', priority: 'mid', barColor: '' });
+    addTemplate('events', { id: genId('et'), name: 'New Event Template', eventType: '', competitionType: '', ageRange: '', priority: 'mid', barColor: '' });
   }
 
   function newDocTemplate() {
@@ -180,10 +184,10 @@ export default function TemplatesPage() {
 
   const sectionHead = (title: string, onNew: () => void) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-      <div style={{ ...condensed, fontSize: 15, color: 'var(--text)' }}>{title}</div>
+      <div style={sectionLabel}>{title}</div>
       <button
         onClick={onNew}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...condensed, fontSize: 11, padding: '8px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...condensed, fontSize: 12, padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px rgba(241,90,34,.32)' }}
       >
         <Plus size={15} /> New
       </button>
@@ -191,34 +195,20 @@ export default function TemplatesPage() {
   );
 
   return (
-    <div style={{ padding: 22, overflow: 'auto', height: '100%' }}>
-      <div style={{ ...condensed, fontSize: 20, color: 'var(--text)', marginBottom: 22 }}>Templates</div>
-
-      <section style={{ marginBottom: 30 }}>
+    <div style={{ padding: '20px 24px 28px', overflow: 'auto', height: '100%' }}>
+      <section style={{ marginBottom: 34 }}>
         {sectionHead('Event Templates', newEventTemplate)}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {templates.events.map(t => (
             <div key={t.id} style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <PriorityDot priority={t.priority} />
-                <span style={{ ...condensed, fontSize: 13, color: 'var(--text)' }}>{t.name}</span>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{t.name}</span>
               </div>
-              <div style={metaRow}>
-                <span>Type</span>
-                <span style={{ color: 'var(--text)' }}>{t.eventType === '' ? '—' : eventTypeLabel(t.eventType)}</span>
-              </div>
-              <div style={metaRow}>
-                <span>Competition</span>
-                <span style={{ color: 'var(--text)' }}>{t.competitionType || '—'}</span>
-              </div>
-              <div style={metaRow}>
-                <span>Age Range</span>
-                <span style={{ color: 'var(--text)' }}>{t.ageRange || '—'}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <button style={iconBtn} onClick={() => setEditEvent(t)}><Pencil size={12} /> Edit</button>
-                <button style={iconBtn} onClick={() => duplicateTemplate('events', t.id)}><Copy size={12} /> Duplicate</button>
-                <button style={{ ...iconBtn, color: '#EF4444' }} onClick={() => deleteTemplate('events', t.id)}><Trash2 size={12} /> Delete</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button style={actionBtn} onClick={() => setEditEvent(t)}>Edit</button>
+                <button style={actionBtn} onClick={() => duplicateTemplate('events', t.id)}>Duplicate</button>
+                <button style={removeBtn} title="Delete" onClick={() => deleteTemplate('events', t.id)}>×</button>
               </div>
             </div>
           ))}
@@ -230,17 +220,17 @@ export default function TemplatesPage() {
 
       <section>
         {sectionHead('Document Templates', newDocTemplate)}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {templates.docs.map(t => (
             <div key={t.id} style={cardStyle}>
-              <div style={{ ...condensed, fontSize: 13, color: 'var(--text)' }}>{t.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t.content ? t.content.slice(0, 60) : 'Empty document'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#0089CF', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, flex: '0 0 28px' }}>D</div>
+                <span style={{ fontSize: 16, fontWeight: 800 }}>{t.name}</span>
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <button style={iconBtn} onClick={() => setEditDoc(t)}><Pencil size={12} /> Edit</button>
-                <button style={iconBtn} onClick={() => duplicateTemplate('docs', t.id)}><Copy size={12} /> Duplicate</button>
-                <button style={{ ...iconBtn, color: '#EF4444' }} onClick={() => deleteTemplate('docs', t.id)}><Trash2 size={12} /> Delete</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button style={actionBtn} onClick={() => setEditDoc(t)}>Edit</button>
+                <button style={actionBtn} onClick={() => duplicateTemplate('docs', t.id)}>Duplicate</button>
+                <button style={removeBtn} title="Delete" onClick={() => deleteTemplate('docs', t.id)}>×</button>
               </div>
             </div>
           ))}

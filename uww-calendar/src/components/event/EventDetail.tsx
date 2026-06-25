@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useStore, eventNotifCount, visibleEvents } from '../../store';
+import { useStore, eventNotifCount, useVisibleEvents } from '../../store';
 import type { NotifTab } from '../../types';
 import EventInfoTab from './tabs/EventInfoTab';
 import EventScheduleTab from './tabs/EventScheduleTab';
@@ -31,7 +31,7 @@ export default function EventDetail() {
   const activeTab = useStore(s => s.eventTab);
   const setEventTab = useStore(s => s.setEventTab);
   const selectEvent = useStore(s => s.selectEvent);
-  const vis = useStore(visibleEvents);
+  const vis = useVisibleEvents();
   const notifCount = useStore(s => (ev ? eventNotifCount(ev.id, s) : 0));
 
   if (!ev) {

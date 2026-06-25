@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, Table as TableIcon,
   Search, SlidersHorizontal, Plus,
 } from 'lucide-react';
-import { useStore, visibleEvents, isAdmin, eventNotifCount } from '../../store';
+import { useStore, useVisibleEvents, isAdmin, eventNotifCount } from '../../store';
 import type { UWWEvent } from '../../types';
 import {
   buildCalendarWeeks, toISO, eventBarColor, eventBarTextColor, priorityRank, isoToday,
@@ -110,7 +110,7 @@ export default function CalendarGrid() {
   const detail = useStore(s => s.detail);
   const admin = useStore(isAdmin);
 
-  const events = useStore(visibleEvents);
+  const events = useVisibleEvents();
   const fullState = useStore(s => s);
 
   const prevMonth = useStore(s => s.prevMonth);

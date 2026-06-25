@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useMemo } from 'react';
 import type {
   Role, Page, CalView, NotifTab, ContextMenuData, SortKey, UWWEvent, StaffMember,
   EventDetail, Notification, Message, Group, Templates, NewEventForm, Priority,
@@ -648,6 +649,28 @@ export function visibleEvents(state: StoreState): UWWEvent[] {
     if (d && (d.members.some(m => m.id === cu) || d.joinRequests.includes(cu))) return true;
     return false;
   });
+}
+
+/**
+ * Memoized hook form of visibleEvents.
+ * Selecting the fresh array directly via useStore(visibleEvents) breaks
+ * Zustand v5's plain useSyncExternalStore (new ref each call → infinite loop),
+ * so components must use this instead.
+ */
+export function useVisibleEvents(): UWWEvent[] {
+  const events = useStore(s => s.events);
+  const role = useStore(s => s.role);
+  const detail = useStore(s => s.detail);
+  return useMemo(() => {
+    if (role !== 'freelance') return events;
+    const cu = ROLE_USER[role];
+    return events.filter(e => {
+      if (e.staff.includes(cu)) return true;
+      const d = detail[e.id];
+      if (d && (d.members.some(m => m.id === cu) || d.joinRequests.includes(cu))) return true;
+      return false;
+    });
+  }, [events, role, detail]);
 }
 
 export function eventNotifCount(eventId: string, state: StoreState): number {

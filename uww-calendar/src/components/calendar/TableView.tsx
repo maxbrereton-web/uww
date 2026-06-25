@@ -3,7 +3,7 @@ import {
   Calendar as CalendarIcon, Table as TableIcon, Search, SlidersHorizontal,
   ArrowUpDown, Check,
 } from 'lucide-react';
-import { useStore, visibleEvents, isAdmin, eventNotifCount } from '../../store';
+import { useStore, useVisibleEvents, isAdmin, eventNotifCount } from '../../store';
 import type { SortKey } from '../../types';
 import {
   eventTypeLabel, formatDate, sortEvents, completionFor,
@@ -34,7 +34,7 @@ export default function TableView() {
   const sortMenuOpen = useStore(s => s.sortMenuOpen);
   const detail = useStore(s => s.detail);
   const admin = useStore(isAdmin);
-  const events = useStore(visibleEvents);
+  const events = useVisibleEvents();
   const fullState = useStore(s => s);
 
   const setCalView = useStore(s => s.setCalView);

@@ -194,6 +194,7 @@ export interface StoreState {
   sendGroup: (groupId: string, text: string, att?: { name: string; url: string }) => void;
   createGroup: (name: string, members: string[], photo?: string) => void;
   editGroup: (groupId: string, name: string, members: string[], photo?: string) => void;
+  deleteGroup: (groupId: string) => void;
   addEvent: (event: UWWEvent) => void;
   updateEvent: (id: string, partial: Partial<UWWEvent>) => void;
   removeEvent: (id: string) => void;
@@ -518,6 +519,11 @@ export const useStore = create<StoreState>((set, get) => {
     editGroup: (groupId, name, members, photo) => commit(s => ({
       groups: s.groups.map(g => g.id === groupId ? { ...g, name, members, photo: photo ?? g.photo } : g),
       editGroupModal: false, editGroupId: null,
+    })),
+    deleteGroup: (groupId) => commit(s => ({
+      groups: s.groups.filter(g => g.id !== groupId),
+      editGroupModal: false, editGroupId: null,
+      chatActive: s.chatActive === 'g:' + groupId ? null : s.chatActive,
     })),
 
     addEvent: (event) => commit(s => ({ events: [...s.events, event] })),

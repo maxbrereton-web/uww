@@ -163,6 +163,7 @@ function EditGroupModal() {
   const editGroupId = useStore(s => s.editGroupId);
   const setEditGroupModal = useStore(s => s.setEditGroupModal);
   const editGroup = useStore(s => s.editGroup);
+  const deleteGroup = useStore(s => s.deleteGroup);
 
   const group = groups.find(g => g.id === editGroupId);
   const others = staff.filter(m => m.id !== cu);
@@ -170,6 +171,7 @@ function EditGroupModal() {
   const [name, setName] = useState(group?.name || '');
   const [photo, setPhoto] = useState<string | undefined>(group?.photo);
   const [members, setMembers] = useState<string[]>((group?.members || []).filter(id => id !== cu));
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!group) return null;
 
@@ -211,6 +213,19 @@ function EditGroupModal() {
         <button onClick={save} style={{ ...condensed, fontSize: 15, width: '100%', padding: '15px', borderRadius: 11, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px rgba(241,90,34,.32)' }}>
           Save Changes
         </button>
+
+        {/* Delete group */}
+        {confirmDelete ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, padding: '12px 14px', border: '1px solid #ED1C24', borderRadius: 11, background: 'color-mix(in srgb, #ED1C24 10%, transparent)' }}>
+            <span style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>Delete this group for everyone?</span>
+            <button onClick={() => deleteGroup(group.id)} style={{ ...condensed, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: 'none', background: '#ED1C24', color: '#fff', cursor: 'pointer' }}>Delete</button>
+            <button onClick={() => setConfirmDelete(false)} style={{ ...condensed, fontSize: 12, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--control)', color: 'var(--text-muted)', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} style={{ ...condensed, fontSize: 12, width: '100%', padding: '12px', marginTop: 10, borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: '#ED1C24', cursor: 'pointer' }}>
+            Delete Group
+          </button>
+        )}
       </div>
     </div>
   );

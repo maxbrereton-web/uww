@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore, isAdmin, currentUser } from '../../../store';
 import type { MemberStatus } from '../../../types';
 import Avatar from '../../common/Avatar';
@@ -37,7 +37,9 @@ export default function EventTeamTab({ eventId }: { eventId: string }) {
   const declineInvite = useStore(s => s.declineInvite);
   const requestJoin = useStore(s => s.requestJoin);
 
-  const [addStaffOpen, setAddStaffOpen] = useState(false);
+  // Anchored, fixed-position menu so it escapes the event panel's overflow:hidden.
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [addMenu, setAddMenu] = useState<{ left: number; top?: number; bottom?: number; width: number } | null>(null);
 
   if (!detail) return null;
 
@@ -87,11 +89,25 @@ export default function EventTeamTab({ eventId }: { eventId: string }) {
 
       {/* Add staff member */}
       {admin && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>Add staff member</span>
           <button
+            ref={addBtnRef}
             type="button"
-            onClick={() => setAddStaffOpen(o => !o)}
+            onClick={() => {
+              if (addMenu) { setAddMenu(null); return; }
+              const el = addBtnRef.current;
+              if (!el) return;
+              const r = el.getBoundingClientRect();
+              const width = Math.min(280, window.innerWidth - 24);
+              const estHeight = Math.min(300, addable.length * 50 + 44);
+              const spaceBelow = window.innerHeight - r.bottom;
+              const flipUp = spaceBelow < estHeight + 16 && r.top > spaceBelow;
+              const left = Math.max(12, Math.min(r.left, window.innerWidth - width - 12));
+              setAddMenu(flipUp
+                ? { left, bottom: window.innerHeight - r.top + 8, width }
+                : { left, top: r.bottom + 8, width });
+            }}
             title="Add staff member"
             style={{
               width: 34, height: 34, borderRadius: '50%', background: 'var(--accent-deep)', color: '#fff',
@@ -101,12 +117,13 @@ export default function EventTeamTab({ eventId }: { eventId: string }) {
           >
             +
           </button>
-          {addStaffOpen && (
+          {addMenu && (
             <>
-              <div onClick={() => setAddStaffOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 15 }} />
+              <div onClick={() => setAddMenu(null)} style={{ position: 'fixed', inset: 0, zIndex: 79 }} />
               <div
                 style={{
-                  position: 'absolute', top: 42, left: 0, zIndex: 20, width: 268,
+                  position: 'fixed', left: addMenu.left, width: addMenu.width, zIndex: 80,
+                  ...(addMenu.top != null ? { top: addMenu.top } : { bottom: addMenu.bottom }),
                   background: 'var(--panel)', border: '1px solid var(--border-strong)',
                   borderRadius: 12, boxShadow: 'var(--shadow)', overflow: 'hidden',
                 }}
@@ -119,7 +136,7 @@ export default function EventTeamTab({ eventId }: { eventId: string }) {
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => { addMember(eventId, m.id); setAddStaffOpen(false); }}
+                      onClick={() => { addMember(eventId, m.id); setAddMenu(null); }}
                       style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 13px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                     >
                       <Avatar staffId={m.id} size={30} />

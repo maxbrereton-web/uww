@@ -156,6 +156,66 @@ function NewGroupModal() {
   );
 }
 
+function EditGroupModal() {
+  const groups = useStore(s => s.groups);
+  const staff = useStore(s => s.staff);
+  const cu = useStore(currentUser);
+  const editGroupId = useStore(s => s.editGroupId);
+  const setEditGroupModal = useStore(s => s.setEditGroupModal);
+  const editGroup = useStore(s => s.editGroup);
+
+  const group = groups.find(g => g.id === editGroupId);
+  const others = staff.filter(m => m.id !== cu);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState(group?.name || '');
+  const [photo, setPhoto] = useState<string | undefined>(group?.photo);
+  const [members, setMembers] = useState<string[]>((group?.members || []).filter(id => id !== cu));
+
+  if (!group) return null;
+
+  const toggle = (id: string) => setMembers(members.includes(id) ? members.filter(m => m !== id) : [...members, id]);
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) cropSquare(f, setPhoto); };
+  const save = () => editGroup(group.id, name.trim() || group.name, [cu, ...members], photo);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setEditGroupModal(null)}>
+      <div className="uww-overlay" style={{ width: 480, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: 'var(--shadow)', padding: 26 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div style={{ ...condensed, fontSize: 19 }}>Edit Group</div>
+          <button onClick={() => setEditGroupModal(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }} aria-label="Close"><X size={20} /></button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
+          <div onClick={() => fileRef.current?.click()} title="Upload group icon" style={{ position: 'relative', width: 64, height: 64, borderRadius: '50%', flex: '0 0 64px', cursor: 'pointer', background: photo ? `center/cover no-repeat url(${photo})` : 'var(--accent-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {!photo && <span style={{ color: '#fff', fontSize: 30, fontWeight: 800 }}>#</span>}
+            <div style={{ position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: '50%', background: 'var(--accent-deep)', border: '3px solid var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Camera size={11} /></div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+          <input value={name} placeholder="Group name" onChange={e => setName(e.target.value)} style={{ flex: 1, padding: '13px 15px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 15, outline: 'none', fontFamily: 'inherit' }} />
+        </div>
+
+        <label style={modalLabel}>Members</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
+          {others.map(m => {
+            const checked = members.includes(m.id);
+            return (
+              <div key={m.id} onClick={() => toggle(m.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 4px', cursor: 'pointer' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, border: '1.5px solid var(--border-strong)', background: checked ? 'var(--field)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', fontSize: 13, flex: '0 0 22px' }}>{checked ? '✓' : ''}</div>
+                <Avatar staffId={m.id} size={34} />
+                <span style={{ fontSize: 14.5, fontWeight: 700 }}>{m.name}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <button onClick={save} style={{ ...condensed, fontSize: 15, width: '100%', padding: '15px', borderRadius: 11, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px rgba(241,90,34,.32)' }}>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Composer({ onSend }: { onSend: (text: string) => void }) {
   const [text, setText] = useState('');
   const send = () => { const v = text.trim(); if (!v) return; onSend(v); setText(''); };
@@ -188,11 +248,13 @@ export default function ChatPage() {
   const usernames = useStore(s => s.usernames);
   const instagram = useStore(s => s.instagram);
   const newGroupModal = useStore(s => s.newGroupModal);
+  const editGroupModal = useStore(s => s.editGroupModal);
 
   const setChatActive = useStore(s => s.setChatActive);
   const sendDm = useStore(s => s.sendDm);
   const sendGroup = useStore(s => s.sendGroup);
   const setNewGroupModal = useStore(s => s.setNewGroupModal);
+  const setEditGroupModal = useStore(s => s.setEditGroupModal);
 
   const [filter, setFilter] = useState('');
 
@@ -274,21 +336,40 @@ export default function ChatPage() {
   const threadTitle = isGroup ? (activeGroup?.name || 'Group') : (activeStaff?.name || '');
   const activeIg = activeStaff ? instagram[activeStaff.id] : undefined;
 
+  const firstName = (id: string) => (staff.find(m => m.id === id)?.name || id).split(' ')[0];
+  const groupMemberNames = activeGroup ? activeGroup.members.map(firstName).join(', ') : '';
+
   const renderThreadPane = (withBack: boolean) => (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
         {withBack && (
           <button onClick={() => setChatActive(null)} aria-label="Back" style={{ background: 'transparent', border: 'none', color: 'var(--text)', cursor: 'pointer', padding: 4 }}><ArrowLeft size={18} /></button>
         )}
         {!isGroup && activeStaff && <Avatar staffId={activeStaff.id} size={34} />}
         {isGroup && (
-          <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--control)', border: '1.5px solid var(--border-strong)' }}><Users size={16} color="var(--text-muted)" /></div>
+          activeGroup?.photo ? (
+            <div style={{ width: 38, height: 38, borderRadius: '50%', backgroundImage: `url(${activeGroup.photo})`, backgroundSize: 'cover', backgroundPosition: 'center', flex: '0 0 38px' }} />
+          ) : (
+            <div style={{ width: 38, height: 38, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent-deep)', flex: '0 0 38px' }}><span style={{ color: '#fff', fontSize: 18, fontWeight: 800 }}>#</span></div>
+          )
         )}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 800 }}>{threadTitle}</span>
-          {!isGroup && activeStaff && <span style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>@{handleOf(activeStaff.id)}</span>}
-        </div>
-        {activeIg && (
+        {isGroup ? (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{threadTitle}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{groupMemberNames}</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flex: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 15, fontWeight: 800 }}>{threadTitle}</span>
+            {activeStaff && <span style={{ fontSize: 12.5, color: 'var(--accent)', fontWeight: 600 }}>@{handleOf(activeStaff.id)}</span>}
+          </div>
+        )}
+        {isGroup && activeGroup && (
+          <button onClick={() => setEditGroupModal(activeGroup.id)} style={{ ...condensed, fontSize: 12, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--control)', color: 'var(--text)', cursor: 'pointer', flex: '0 0 auto', whiteSpace: 'nowrap' }}>
+            Edit group
+          </button>
+        )}
+        {!isGroup && activeIg && (
           <a href={`https://instagram.com/${activeIg}`} target="_blank" rel="noreferrer" title={`@${activeIg} on Instagram`} style={{ color: 'var(--text-muted)', display: 'inline-flex' }}>
             <InstagramIcon size={18} />
           </a>
@@ -336,6 +417,7 @@ export default function ChatPage() {
           {chatActive ? renderThreadPane(true) : renderSidebar()}
         </div>
         {newGroupModal && <NewGroupModal />}
+        {editGroupModal && <EditGroupModal />}
       </div>
     );
   }
@@ -355,6 +437,7 @@ export default function ChatPage() {
         </div>
       </div>
       {newGroupModal && <NewGroupModal />}
+      {editGroupModal && <EditGroupModal />}
     </div>
   );
 }

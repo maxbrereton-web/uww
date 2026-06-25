@@ -336,11 +336,13 @@ export const useStore = create<StoreState>((set, get) => {
     }
   };
 
-  const patchDetail = (eventId: string, fn: (d: EventDetail) => EventDetail) => {
+  const patchDetail = (eventId: string, fn: (d: EventDetail) => EventDetail, skipSync = false) => {
     ensureDetail(eventId);
     const s = get();
     const cur = s.detail[eventId];
-    commit(() => ({ detail: { ...s.detail, [eventId]: fn(cur) } }));
+    const next = fn(cur);
+    commit(() => ({ detail: { ...s.detail, [eventId]: next } }));
+    if (!skipSync) pushDetail(eventId, next);
   };
 
   // Map an authenticated Supabase user onto the app's identity (super-admin,
@@ -414,6 +416,31 @@ export const useStore = create<StoreState>((set, get) => {
       events: row.archived ? s.events.filter(e => e.id !== ev.id) : upsertById(s.events, ev),
       archivedEvents: row.archived ? upsertById(s.archivedEvents, ev) : s.archivedEvents.filter(e => e.id !== ev.id),
     }));
+  };
+
+  // ---- Event detail sync (info, links, schedule, team, posting, availability, comments) ----
+  // Draft fields (what you're mid-typing) are stripped before sharing so half-typed
+  // text never appears on other people's screens.
+  const stripDrafts = (d: EventDetail): EventDetail => ({
+    ...d, newRequest: '', requests: d.requests.map(r => ({ ...r, draft: '' })),
+  });
+  const pushDetail = (eventId: string, detail: EventDetail) => {
+    supabase.from('event_details').upsert({ event_id: eventId, data: stripDrafts(detail), updated_at: new Date().toISOString() }).then(undefined, () => {});
+  };
+  // Apply an incoming detail from Supabase, keeping this device's own in-progress drafts.
+  const applyDetailRow = (eventId: string, incoming: EventDetail) => {
+    commit(s => {
+      const localD = s.detail[eventId];
+      const merged: EventDetail = {
+        ...incoming,
+        newRequest: localD?.newRequest ?? '',
+        requests: incoming.requests.map(r => {
+          const lr = localD?.requests.find(x => x.id === r.id);
+          return { ...r, draft: lr?.draft ?? '' };
+        }),
+      };
+      return { detail: { ...s.detail, [eventId]: merged } };
+    });
   };
 
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
@@ -567,13 +594,23 @@ export const useStore = create<StoreState>((set, get) => {
           }
         }
       } catch { /* offline — local only */ }
-      // Live updates to the calendar for everyone.
+      // Load any shared event details (info, links, team, posting, availability, comments).
+      try {
+        const { data: dets } = await supabase.from('event_details').select('*');
+        (dets as { event_id: string; data: EventDetail }[] | null)?.forEach(r => applyDetailRow(r.event_id, r.data));
+      } catch { /* ignore */ }
+      // Live updates to the calendar + event contents for everyone.
       try {
         supabase
           .channel('events-rt')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
             const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { id: string; data: UWWEvent; archived: boolean };
             applyEventRow(payload.eventType, row);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'event_details' }, payload => {
+            if (payload.eventType === 'DELETE') return;
+            const row = payload.new as { event_id: string; data: EventDetail };
+            applyDetailRow(row.event_id, row.data);
           })
           .subscribe();
       } catch { /* ignore */ }
@@ -900,7 +937,7 @@ export const useStore = create<StoreState>((set, get) => {
 
     addCommentReply: (eventId, threadId, text) => {
       const s0 = get();
-      const cu = ROLE_USER[s0.role];
+      const cu = currentUser(s0);
       const evName = [...s0.events, ...s0.archivedEvents].find(e => e.id === eventId)?.name;
       const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { eventId, targetTab: 'requests', context: evName });
       ensureDetail(eventId);
@@ -917,6 +954,7 @@ export const useStore = create<StoreState>((set, get) => {
         },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      pushDetail(eventId, get().detail[eventId]);
     },
     resolveComment: (eventId, threadId) => patchDetail(eventId, d => ({
       ...d, requests: d.requests.map(c => c.id === threadId ? { ...c, status: 'resolved' } : c),
@@ -926,11 +964,11 @@ export const useStore = create<StoreState>((set, get) => {
     })),
     setCommentDraft: (eventId, threadId, text) => patchDetail(eventId, d => ({
       ...d, requests: d.requests.map(c => c.id === threadId ? { ...c, draft: text } : c),
-    })),
-    setNewRequest: (eventId, text) => patchDetail(eventId, d => ({ ...d, newRequest: text })),
+    }), true),
+    setNewRequest: (eventId, text) => patchDetail(eventId, d => ({ ...d, newRequest: text }), true),
     addNewRequest: (eventId, text) => {
       const s0 = get();
-      const cu = ROLE_USER[s0.role];
+      const cu = currentUser(s0);
       const evName = [...s0.events, ...s0.archivedEvents].find(e => e.id === eventId)?.name;
       const mn = makeMentionNotifs(text, cu, s0.staff, s0.usernames, { eventId, targetTab: 'requests', context: evName });
       ensureDetail(eventId);
@@ -946,6 +984,7 @@ export const useStore = create<StoreState>((set, get) => {
         },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      pushDetail(eventId, get().detail[eventId]);
     },
 
     updateEventFlightDeadline: (eventId, date) => {

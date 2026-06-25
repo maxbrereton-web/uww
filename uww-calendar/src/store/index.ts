@@ -474,6 +474,28 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
+  // ---- Notifications sync (so @-mentions reach people on their own device) ----
+  const syncNotif = (n: Notification) => {
+    supabase.from('notifications').upsert({ id: n.id, data: n, updated_at: new Date().toISOString() }).then(undefined, () => {});
+  };
+  const syncNotifs = (ns: Notification[]) => ns.forEach(syncNotif);
+  const applyNotifRow = (eventType: string, row: { id: string; data: Notification }) => {
+    if (eventType === 'DELETE') {
+      commit(s => ({ notifications: s.notifications.filter(n => n.id !== row.id) }));
+      return;
+    }
+    commit(s => ({
+      notifications: s.notifications.some(n => n.id === row.id)
+        ? s.notifications.map(n => n.id === row.id ? row.data : n)
+        : [...s.notifications, row.data],
+    }));
+  };
+
+  // ---- Templates sync (shared event/doc templates) ----
+  const syncTemplates = () => {
+    supabase.from('templates').upsert({ id: 'main', data: get().templates, updated_at: new Date().toISOString() }).then(undefined, () => {});
+  };
+
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
   const localLogin = (identifier: string, password: string): { ok: boolean; error?: string; needsSetup?: string } => {
     const s = get();
@@ -643,6 +665,26 @@ export const useStore = create<StoreState>((set, get) => {
           }
         }
       } catch { /* ignore */ }
+      // Shared notifications (@-mentions reach people on their own device).
+      try {
+        const { data: rows, error } = await supabase.from('notifications').select('*');
+        if (!error && rows) {
+          if (rows.length === 0) {
+            const seed = get().notifications.map(n => ({ id: n.id, data: n }));
+            if (seed.length) await supabase.from('notifications').upsert(seed).then(undefined, () => {});
+          } else {
+            (rows as { id: string; data: Notification }[]).forEach(r => applyNotifRow('UPDATE', r));
+          }
+        }
+      } catch { /* ignore */ }
+      // Shared templates.
+      try {
+        const { data: rows, error } = await supabase.from('templates').select('*').eq('id', 'main');
+        if (!error && rows) {
+          if (rows.length === 0) syncTemplates();
+          else commit(() => ({ templates: (rows[0] as { data: Templates }).data }));
+        }
+      } catch { /* ignore */ }
       // Live updates to the calendar + event contents for everyone.
       try {
         supabase
@@ -659,6 +701,14 @@ export const useStore = create<StoreState>((set, get) => {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_members' }, payload => {
             const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as StaffRow;
             applyStaffRow(payload.eventType, row);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, payload => {
+            const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { id: string; data: Notification };
+            applyNotifRow(payload.eventType, row);
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'templates' }, payload => {
+            if (payload.eventType === 'DELETE') return;
+            commit(() => ({ templates: (payload.new as { data: Templates }).data }));
           })
           .subscribe();
       } catch { /* ignore */ }
@@ -753,20 +803,31 @@ export const useStore = create<StoreState>((set, get) => {
     setFilterType: (t) => set({ filterType: t }),
     setFilterPriority: (p) => set({ filterPriority: p }),
 
-    actionNotif: (id) => commit(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, actioned: true } : n) })),
-    clearNotif: (id) => commit(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, cleared: true } : n) })),
-    clearAllNotifs: () => commit(s => {
-      const cu = ROLE_USER[s.role];
-      const isAdminUser = s.role === 'admin';
-      return {
-        notifications: s.notifications.map(n => {
-          const forMe = n.mentionFor
-            ? n.mentionFor === cu
-            : (n.forRole === 'both' || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff'));
-          return forMe ? { ...n, cleared: true } : n;
-        }),
-      };
-    }),
+    actionNotif: (id) => {
+      commit(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, actioned: true } : n) }));
+      const n = get().notifications.find(x => x.id === id);
+      if (n) syncNotif(n);
+    },
+    clearNotif: (id) => {
+      commit(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, cleared: true } : n) }));
+      const n = get().notifications.find(x => x.id === id);
+      if (n) syncNotif(n);
+    },
+    clearAllNotifs: () => {
+      commit(s => {
+        const cu = currentUser(s);
+        const isAdminUser = s.role === 'admin';
+        return {
+          notifications: s.notifications.map(n => {
+            const forMe = n.mentionFor
+              ? n.mentionFor === cu
+              : (n.forRole === 'both' || (isAdminUser ? n.forRole === 'admin' : n.forRole === 'staff'));
+            return forMe ? { ...n, cleared: true } : n;
+          }),
+        };
+      });
+      syncNotifs(get().notifications.filter(n => n.cleared));
+    },
 
     updateDetail: (eventId, partial) => patchDetail(eventId, d => ({ ...d, ...partial })),
 
@@ -877,6 +938,7 @@ export const useStore = create<StoreState>((set, get) => {
         dms: { ...s.dms, [key]: [...(s.dms[key] || []), msg] },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      if (mn.length) syncNotifs(mn);
       supabase.from('messages').insert({ id, channel: 'dm:' + key, sender: cu, body: text, attachment: att ?? null }).then(undefined, () => {});
     },
     openDmWith: (userId) => set({ dmOverlay: userId }),
@@ -894,6 +956,7 @@ export const useStore = create<StoreState>((set, get) => {
         groups: s.groups.map(g => g.id === groupId ? { ...g, messages: [...g.messages, msg] } : g),
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      if (mn.length) syncNotifs(mn);
       supabase.from('messages').insert({ id, channel: 'grp:' + groupId, sender: cu, body: text, attachment: att ?? null }).then(undefined, () => {});
     },
     createGroup: (name, members, photo) => {
@@ -938,31 +1001,43 @@ export const useStore = create<StoreState>((set, get) => {
       syncEvent(id);
     },
 
-    addTemplate: (type, tpl) => commit(s => ({
-      templates: type === 'events'
-        ? { ...s.templates, events: [...s.templates.events, tpl as EventTemplate] }
-        : { ...s.templates, docs: [...s.templates.docs, tpl as DocTemplate] },
-    })),
-    updateTemplate: (type, id, partial) => commit(s => ({
-      templates: type === 'events'
-        ? { ...s.templates, events: s.templates.events.map(t => t.id === id ? { ...t, ...partial } : t) }
-        : { ...s.templates, docs: s.templates.docs.map(t => t.id === id ? { ...t, ...partial } : t) },
-    })),
-    deleteTemplate: (type, id) => commit(s => ({
-      templates: type === 'events'
-        ? { ...s.templates, events: s.templates.events.filter(t => t.id !== id) }
-        : { ...s.templates, docs: s.templates.docs.filter(t => t.id !== id) },
-    })),
-    duplicateTemplate: (type, id) => commit(s => {
-      if (type === 'events') {
-        const t = s.templates.events.find(x => x.id === id);
+    addTemplate: (type, tpl) => {
+      commit(s => ({
+        templates: type === 'events'
+          ? { ...s.templates, events: [...s.templates.events, tpl as EventTemplate] }
+          : { ...s.templates, docs: [...s.templates.docs, tpl as DocTemplate] },
+      }));
+      syncTemplates();
+    },
+    updateTemplate: (type, id, partial) => {
+      commit(s => ({
+        templates: type === 'events'
+          ? { ...s.templates, events: s.templates.events.map(t => t.id === id ? { ...t, ...partial } : t) }
+          : { ...s.templates, docs: s.templates.docs.map(t => t.id === id ? { ...t, ...partial } : t) },
+      }));
+      syncTemplates();
+    },
+    deleteTemplate: (type, id) => {
+      commit(s => ({
+        templates: type === 'events'
+          ? { ...s.templates, events: s.templates.events.filter(t => t.id !== id) }
+          : { ...s.templates, docs: s.templates.docs.filter(t => t.id !== id) },
+      }));
+      syncTemplates();
+    },
+    duplicateTemplate: (type, id) => {
+      commit(s => {
+        if (type === 'events') {
+          const t = s.templates.events.find(x => x.id === id);
+          if (!t) return {};
+          return { templates: { ...s.templates, events: [...s.templates.events, { ...t, id: 'et' + Date.now(), name: t.name + ' (Copy)' }] } };
+        }
+        const t = s.templates.docs.find(x => x.id === id);
         if (!t) return {};
-        return { templates: { ...s.templates, events: [...s.templates.events, { ...t, id: 'et' + Date.now(), name: t.name + ' (Copy)' }] } };
-      }
-      const t = s.templates.docs.find(x => x.id === id);
-      if (!t) return {};
-      return { templates: { ...s.templates, docs: [...s.templates.docs, { ...t, id: 'dt' + Date.now(), name: t.name + ' (Copy)' }] } };
-    }),
+        return { templates: { ...s.templates, docs: [...s.templates.docs, { ...t, id: 'dt' + Date.now(), name: t.name + ' (Copy)' }] } };
+      });
+      syncTemplates();
+    },
 
     setUsername: (userId, username) => { commit(s => ({ usernames: { ...s.usernames, [userId]: username } })); syncStaff(userId); },
     setInstagram: (userId, handle) => { commit(s => ({ instagram: { ...s.instagram, [userId]: handle } })); syncStaff(userId); },
@@ -1003,6 +1078,7 @@ export const useStore = create<StoreState>((set, get) => {
         },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      if (mn.length) syncNotifs(mn);
       pushDetail(eventId, get().detail[eventId]);
     },
     resolveComment: (eventId, threadId) => patchDetail(eventId, d => ({
@@ -1033,6 +1109,7 @@ export const useStore = create<StoreState>((set, get) => {
         },
         notifications: mn.length ? [...s.notifications, ...mn] : s.notifications,
       }));
+      if (mn.length) syncNotifs(mn);
       pushDetail(eventId, get().detail[eventId]);
     },
 

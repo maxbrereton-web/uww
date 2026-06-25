@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useStore, currentUser, effectiveView } from './store';
 import Avatar from './components/common/Avatar';
 import Sidebar from './components/layout/Sidebar';
+import MobileTabBar from './components/layout/MobileTabBar';
 import TopBar from './components/layout/TopBar';
 import CalendarGrid from './components/calendar/CalendarGrid';
 import TableView from './components/calendar/TableView';
@@ -75,7 +76,7 @@ export default function App() {
       data-view={view}
       style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}
     >
-      <Sidebar />
+      {view === 'mobile' ? <MobileTabBar /> : <Sidebar />}
       <main
         className="uww-main"
         style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}

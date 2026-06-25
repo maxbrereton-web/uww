@@ -100,6 +100,13 @@ export function formatDateFull(iso: string): string {
   return `${MONTHS_SHORT[dt.getMonth()]} ${dt.getDate()}`;
 }
 
+/** "07 Jul" — day-of-month then short month, matching the prototype's fmtDate. */
+export function formatDayMon(iso: string): string {
+  if (!iso) return '';
+  const dt = parseDateISO(iso);
+  return `${String(dt.getDate()).padStart(2, '0')} ${MONTHS_SHORT[dt.getMonth()]}`;
+}
+
 export function toISO(dt: Date): string {
   const y = dt.getFullYear();
   const m = String(dt.getMonth() + 1).padStart(2, '0');
@@ -193,6 +200,18 @@ export function eventBarColor(ev: UWWEvent): string {
 export function eventBarTextColor(ev: UWWEvent): string {
   if (!ev.barColor && ev.eventType === 'documentary') return '#13162a';
   return '#fff';
+}
+
+/** Brighter "solid" accent colour for an event (used by the Event Info accent bar). */
+export function eventSolidColor(ev: UWWEvent): string {
+  if (ev.barColor) return ev.barColor;
+  const c = ev.competitionType || '';
+  if (ev.eventType === 'documentary') return '#ffffff';
+  if (ev.eventType === 'devcamp') return '#4a9460';
+  if (/World/i.test(c)) return '#0089CF';
+  if (/Continental/i.test(c)) return '#AB2A4D';
+  if (/Ranking/i.test(c)) return '#F15A22';
+  return '#46439e';
 }
 
 export function eventTypeLabel(t: string): string {

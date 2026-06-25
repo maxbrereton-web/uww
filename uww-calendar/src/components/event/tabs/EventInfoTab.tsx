@@ -1,47 +1,35 @@
 import type React from 'react';
 import { useState } from 'react';
-import { FileText, Link2, ExternalLink, X, Plus } from 'lucide-react';
+import { FileText, Link2, X, Plus } from 'lucide-react';
 import { useStore, isAdmin } from '../../../store';
-import type { Priority, EventType, InfoItem } from '../../../types';
-import PriorityDot from '../../common/PriorityDot';
+import type { EventType, InfoItem } from '../../../types';
 import Avatar from '../../common/Avatar';
-import { formatDateFull, eventTypeLabel, priorityLabel } from '../../../data/utils';
+import {
+  formatDayMon, eventTypeLabel, priorityColor, priorityLabel, eventSolidColor,
+} from '../../../data/utils';
 import {
   EVENT_TYPES, AGE_RANGES, COMPETITION_TYPES_WRESTLING, COMPETITION_TYPES_CONTINENTAL,
 } from '../../../data/seed';
 
 const condensed: React.CSSProperties = {
-  fontStretch: '75%',
-  fontWeight: 800,
-  textTransform: 'uppercase',
-  letterSpacing: '.02em',
+  fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
 };
 
-const PRIORITIES: Priority[] = ['top', 'mid', 'low'];
-
-const chipStyle: React.CSSProperties = {
-  background: 'var(--panel-2)',
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '8px 12px',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
+const sectionLabel: React.CSSProperties = {
+  fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase',
+  letterSpacing: '.09em', fontWeight: 700,
 };
 
-const chipLabel: React.CSSProperties = { ...condensed, fontSize: 10, color: 'var(--text-muted)' };
-const chipValue: React.CSSProperties = { fontSize: 13, color: 'var(--text)' };
-
-const sectionHeading: React.CSSProperties = { ...condensed, fontSize: 13, color: 'var(--text)', margin: '22px 0 10px' };
-
-const fieldStyle: React.CSSProperties = {
-  background: 'var(--field)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  color: 'var(--text)',
-  fontSize: 13,
-  padding: '4px 8px',
-};
+interface ChipDef {
+  k: string;
+  value: string;
+  dot?: string;
+  dotAnimated?: boolean;
+  editor?: 'select' | 'dates';
+  selectVal?: string;
+  opts?: { value: string; label: string }[];
+  onChange?: (v: string) => void;
+}
 
 export default function EventInfoTab({ eventId }: { eventId: string }) {
   const ev = useStore(s => s.events.find(e => e.id === eventId) || s.archivedEvents.find(e => e.id === eventId));
@@ -56,208 +44,182 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
   const openDocEditor = useStore(s => s.openDocEditor);
   const openLinkSetup = useStore(s => s.openLinkSetup);
 
-  const [editing, setEditing] = useState<string | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [adminAddOpen, setAdminAddOpen] = useState(false);
 
   if (!ev) return null;
 
   const compOptions = ev.eventType === 'continental' ? COMPETITION_TYPES_CONTINENTAL : COMPETITION_TYPES_WRESTLING;
-  const eventAdmins = ev.eventAdmins || [];
   const infoItems = detail?.infoItems || [];
+  const accent = eventSolidColor(ev);
 
-  const cyclePriority = () => {
-    const i = PRIORITIES.indexOf(ev.priority);
-    updateEvent(eventId, { priority: PRIORITIES[(i + 1) % PRIORITIES.length] });
-  };
+  // Standard (global) admins are always listed; extra event-admins appended.
+  const stdAdminIds = staff.filter(p => p.admin).map(p => p.id);
+  const extraAdminIds = (ev.eventAdmins || []).filter(id => !stdAdminIds.includes(id));
+  const adminIds = [...new Set([...stdAdminIds, ...extraAdminIds])];
+  const addableAdmins = staff.filter(p => !p.admin && !(ev.eventAdmins || []).includes(p.id));
+
+  const chips: ChipDef[] = [
+    {
+      k: 'Priority', value: priorityLabel(ev.priority), dot: priorityColor(ev.priority),
+      dotAnimated: ev.priority === 'top', editor: 'select', selectVal: ev.priority,
+      opts: [{ value: 'low', label: 'Low' }, { value: 'mid', label: 'Mid' }, { value: 'top', label: 'Top' }],
+      onChange: v => updateEvent(eventId, { priority: v as 'top' | 'mid' | 'low' }),
+    },
+    {
+      k: 'Event Type', value: eventTypeLabel(ev.eventType), dot: accent,
+      editor: 'select', selectVal: ev.eventType,
+      opts: EVENT_TYPES.map(t => ({ value: t, label: eventTypeLabel(t) })),
+      onChange: v => updateEvent(eventId, { eventType: v as EventType, competitionType: '' }),
+    },
+  ];
+  if (ev.eventType !== 'documentary' && ev.eventType !== 'devcamp') {
+    chips.push({
+      k: 'Competition', value: ev.competitionType || '—', editor: 'select', selectVal: ev.competitionType,
+      opts: compOptions.map(c => ({ value: c, label: c })),
+      onChange: v => updateEvent(eventId, { competitionType: v }),
+    });
+  }
+  if (ev.eventType === 'wrestling') {
+    chips.push({
+      k: 'Age Range', value: ev.ageRange || '—', editor: 'select', selectVal: ev.ageRange,
+      opts: AGE_RANGES.map(a => ({ value: a, label: a })),
+      onChange: v => updateEvent(eventId, { ageRange: v }),
+    });
+  }
+  if (/Continental/i.test(ev.competitionType)) {
+    chips.push({
+      k: 'Location', value: ev.location || '—', editor: 'select', selectVal: ev.location,
+      opts: ['Euros', 'Pans', 'Asians', 'Oceania', 'Africans'].map(l => ({ value: l, label: l })),
+      onChange: v => updateEvent(eventId, { location: v }),
+    });
+  }
+  chips.push({
+    k: 'Dates', value: `${formatDayMon(ev.start)} – ${formatDayMon(ev.end)}`, editor: 'dates',
+  });
 
   return (
     <div>
-      {/* Info chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {/* Priority */}
-        <div
-          style={{ ...chipStyle, cursor: admin ? 'pointer' : 'default' }}
-          onClick={admin ? cyclePriority : undefined}
-          title={admin ? 'Click to change priority' : undefined}
-        >
-          <span style={chipLabel}>Priority</span>
-          <PriorityDot priority={ev.priority} />
-          <span style={chipValue}>{priorityLabel(ev.priority)}</span>
-        </div>
+      {/* Accent bar + name */}
+      <div style={{ height: 4, width: 60, borderRadius: 3, background: accent, marginBottom: 16 }} />
+      <div style={{ ...condensed, fontSize: 26, marginBottom: 20 }}>{ev.name}</div>
 
-        {/* Type */}
-        <div style={chipStyle}>
-          <span style={chipLabel}>Type</span>
-          {admin && editing === 'type' ? (
-            <select
-              autoFocus
-              style={fieldStyle}
-              value={ev.eventType}
-              onChange={e => { updateEvent(eventId, { eventType: e.target.value as EventType }); setEditing(null); }}
-              onBlur={() => setEditing(null)}
-            >
-              {EVENT_TYPES.map(t => <option key={t} value={t}>{eventTypeLabel(t)}</option>)}
-            </select>
-          ) : (
-            <span
-              style={{ ...chipValue, cursor: admin ? 'pointer' : 'default' }}
-              onClick={admin ? () => setEditing('type') : undefined}
-            >
-              {eventTypeLabel(ev.eventType)}
-            </span>
-          )}
-        </div>
+      {/* Info chip cards */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+          gap: 12,
+          marginBottom: 28,
+        }}
+      >
+        {chips.map(c => (
+          <div
+            key={c.k}
+            style={{
+              position: 'relative',
+              background: 'var(--panel-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '13px 15px',
+              cursor: admin ? 'pointer' : 'default',
+            }}
+          >
+            <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 5 }}>
+              {c.k}
+            </div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, textTransform: 'capitalize', display: 'flex', alignItems: 'center' }}>
+              {c.dot && (
+                <span
+                  style={{
+                    width: 9, height: 9, borderRadius: '50%', background: c.dot, display: 'inline-block', marginRight: 7,
+                    ...(c.dotAnimated ? { animation: 'goldRipple 2.2s ease-out infinite, goldGlow 2.2s ease-in-out infinite' } : {}),
+                  }}
+                />
+              )}
+              <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.value}</span>
+              {admin && <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>▾</span>}
+            </div>
 
-        {/* Competition */}
-        <div style={chipStyle}>
-          <span style={chipLabel}>Competition</span>
-          {admin && editing === 'comp' ? (
-            <select
-              autoFocus
-              style={fieldStyle}
-              value={ev.competitionType}
-              onChange={e => { updateEvent(eventId, { competitionType: e.target.value }); setEditing(null); }}
-              onBlur={() => setEditing(null)}
-            >
-              {compOptions.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          ) : (
-            <span
-              style={{ ...chipValue, cursor: admin ? 'pointer' : 'default' }}
-              onClick={admin ? () => setEditing('comp') : undefined}
-            >
-              {ev.competitionType}
-            </span>
-          )}
-        </div>
-
-        {/* Category / Age */}
-        <div style={chipStyle}>
-          <span style={chipLabel}>Category</span>
-          {admin && editing === 'age' ? (
-            <select
-              autoFocus
-              style={fieldStyle}
-              value={ev.ageRange}
-              onChange={e => { updateEvent(eventId, { ageRange: e.target.value }); setEditing(null); }}
-              onBlur={() => setEditing(null)}
-            >
-              {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          ) : (
-            <span
-              style={{ ...chipValue, cursor: admin ? 'pointer' : 'default' }}
-              onClick={admin ? () => setEditing('age') : undefined}
-            >
-              {ev.ageRange}
-            </span>
-          )}
-        </div>
-
-        {/* Dates */}
-        <div style={chipStyle}>
-          <span style={chipLabel}>Dates</span>
-          {admin && editing === 'dates' ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="date"
-                style={fieldStyle}
-                value={ev.start}
-                onChange={e => updateEvent(eventId, { start: e.target.value })}
-              />
-              <span style={{ color: 'var(--text-faint)' }}>–</span>
-              <input
-                type="date"
-                style={fieldStyle}
-                value={ev.end}
-                onChange={e => updateEvent(eventId, { end: e.target.value })}
-                onBlur={() => setEditing(null)}
-              />
-            </span>
-          ) : (
-            <span
-              style={{ ...chipValue, cursor: admin ? 'pointer' : 'default' }}
-              onClick={admin ? () => setEditing('dates') : undefined}
-            >
-              {formatDateFull(ev.start)} – {formatDateFull(ev.end)}
-            </span>
-          )}
-        </div>
-
-        {/* Location */}
-        {(admin || ev.location) && (
-          <div style={chipStyle}>
-            <span style={chipLabel}>Location</span>
-            {admin && editing === 'loc' ? (
-              <input
-                autoFocus
-                type="text"
-                style={fieldStyle}
-                value={ev.location}
-                placeholder="Location…"
-                onChange={e => updateEvent(eventId, { location: e.target.value })}
-                onBlur={() => setEditing(null)}
-              />
-            ) : (
-              <span
-                style={{ ...chipValue, cursor: admin ? 'pointer' : 'default' }}
-                onClick={admin ? () => setEditing('loc') : undefined}
+            {/* Admin inline editors (invisible overlays) */}
+            {admin && c.editor === 'select' && (
+              <select
+                value={c.selectVal}
+                onChange={e => c.onChange?.(e.target.value)}
+                title={`Change ${c.k}`}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
               >
-                {ev.location || '—'}
-              </span>
+                {c.opts?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            )}
+            {admin && c.editor === 'dates' && (
+              <>
+                <input
+                  type="date" value={ev.start} title="Start date"
+                  onChange={e => updateEvent(eventId, { start: e.target.value })}
+                  style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', opacity: 0, cursor: 'pointer' }}
+                />
+                <input
+                  type="date" value={ev.end} title="End date"
+                  onChange={e => updateEvent(eventId, { end: e.target.value })}
+                  style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', opacity: 0, cursor: 'pointer' }}
+                />
+              </>
             )}
           </div>
-        )}
+        ))}
       </div>
 
-      {/* Important Info */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={sectionHeading}>Important Info</div>
+      {/* Important Info header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 18, marginBottom: 14 }}>
+        <div style={sectionLabel}>Important Info</div>
         {admin && (
           <div style={{ position: 'relative' }}>
             <button
               type="button"
               onClick={() => setAddMenuOpen(o => !o)}
+              title="Add info"
               style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)',
-                background: 'var(--control)', color: 'var(--text)', cursor: 'pointer',
+                width: 32, height: 32, borderRadius: 8, background: 'var(--accent-deep)', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                boxShadow: '0 5px 14px rgba(241,90,34,.3)',
               }}
-              title="Add info item"
             >
-              <Plus size={14} />
+              <Plus size={18} />
             </button>
             {addMenuOpen && (
-              <div
-                style={{
-                  position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 20,
-                  background: 'var(--panel)', border: '1px solid var(--border-strong)',
-                  borderRadius: 8, boxShadow: 'var(--shadow)', minWidth: 160, overflow: 'hidden',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => { addInfoItem(eventId, { id: 'doc' + Date.now(), kind: 'doc', name: 'New Document', content: '' }); setAddMenuOpen(false); }}
-                  style={menuItemStyle}
+              <>
+                <div onClick={() => setAddMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 15 }} />
+                <div
+                  style={{
+                    position: 'absolute', top: 40, right: 0, zIndex: 20, width: 190,
+                    background: 'var(--panel)', border: '1px solid var(--border-strong)',
+                    borderRadius: 11, boxShadow: 'var(--shadow)', overflow: 'hidden',
+                  }}
                 >
-                  New document
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { addInfoItem(eventId, { id: 'lnk' + Date.now(), kind: 'link', name: 'New Link', url: '' }); setAddMenuOpen(false); }}
-                  style={menuItemStyle}
-                >
-                  Add link
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => { addInfoItem(eventId, { id: 'doc' + Date.now(), kind: 'doc', name: 'New Document', content: '' }); setAddMenuOpen(false); }}
+                    style={menuItemStyle}
+                  >
+                    <FileText size={15} /> New document
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { addInfoItem(eventId, { id: 'lnk' + Date.now(), kind: 'link', name: 'New Link', url: '' }); setAddMenuOpen(false); }}
+                    style={{ ...menuItemStyle, borderTop: '1px solid var(--border)' }}
+                  >
+                    <Link2 size={15} /> Add link
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {infoItems.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No info items.</div>}
+      {/* Important Info cards */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {infoItems.map(item => (
           <InfoCard
             key={item.id}
@@ -265,7 +227,7 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
             admin={admin}
             onClick={() => {
               if (item.kind === 'doc') openDocEditor(item);
-              else if (!item.url) openLinkSetup(item);
+              else if (!item.url) { if (admin) openLinkSetup(item); }
               else window.open(item.url, '_blank');
             }}
             onRemove={() => removeInfoItem(eventId, item.id)}
@@ -274,138 +236,145 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
       </div>
 
       {/* Event Admin */}
-      <div style={sectionHeading}>Event Admin</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, position: 'relative' }}>
-        {eventAdmins.map(id => {
-          const m = staff.find(x => x.id === id);
-          return (
-            <div key={id} style={{ ...pillStyle }}>
-              <Avatar staffId={id} size={22} />
-              <span style={{ fontSize: 13, color: 'var(--text)' }}>{m?.name || id}</span>
-              {admin && (
-                <button type="button" onClick={() => removeEventAdmin(eventId, id)} style={pillRemoveStyle} title="Remove">
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {eventAdmins.length === 0 && !admin && (
-          <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No event admins assigned.</div>
-        )}
-        {admin && (
-          <div style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setAdminAddOpen(o => !o)}
-              style={{ ...pillStyle, cursor: 'pointer', color: 'var(--text-muted)' }}
-              title="Add event admin"
-            >
-              <Plus size={14} />
-              <span style={{ ...condensed, fontSize: 11 }}>Add</span>
-            </button>
-            {adminAddOpen && (
-              <div
-                style={{
-                  position: 'absolute', bottom: '100%', left: 0, marginBottom: 4, zIndex: 20,
-                  background: 'var(--panel)', border: '1px solid var(--border-strong)',
-                  borderRadius: 8, boxShadow: 'var(--shadow)', minWidth: 200, maxHeight: 240,
-                  overflowY: 'auto',
-                }}
-              >
-                {staff.filter(m => !eventAdmins.includes(m.id)).map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => { addEventAdmin(eventId, m.id); setAdminAddOpen(false); }}
-                    style={{ ...menuItemStyle, display: 'flex', alignItems: 'center', gap: 8 }}
-                  >
-                    <Avatar staffId={m.id} size={20} />
-                    {m.name}
+      <div style={{ borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 18 }}>
+        <div style={{ ...sectionLabel, marginBottom: 12 }}>Event Admin</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+          {adminIds.map(id => {
+            const m = staff.find(x => x.id === id);
+            const removable = admin && !m?.admin;
+            return (
+              <div key={id} style={pillStyle}>
+                <Avatar staffId={id} size={26} />
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>{m?.name || id}</span>
+                {removable && (
+                  <button type="button" onClick={() => removeEventAdmin(eventId, id)} style={pillRemoveStyle} title="Remove as event admin">
+                    <X size={12} />
                   </button>
-                ))}
-                {staff.filter(m => !eventAdmins.includes(m.id)).length === 0 && (
-                  <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: 13 }}>All staff are admins.</div>
                 )}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })}
+          {admin && (
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setAdminAddOpen(o => !o)}
+                title="Add event admin"
+                style={{
+                  width: 32, height: 32, borderRadius: '50%', background: 'var(--accent-deep)', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  boxShadow: '0 5px 14px rgba(241,90,34,.3)',
+                }}
+              >
+                <Plus size={17} />
+              </button>
+              {adminAddOpen && (
+                <>
+                  <div onClick={() => setAdminAddOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 15 }} />
+                  <div
+                    style={{
+                      position: 'absolute', bottom: 40, left: 0, zIndex: 20, width: 240,
+                      background: 'var(--panel)', border: '1px solid var(--border-strong)',
+                      borderRadius: 11, boxShadow: 'var(--shadow)', overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ padding: '9px 13px 6px', fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '.08em', fontWeight: 700 }}>
+                      Make event admin
+                    </div>
+                    <div style={{ maxHeight: 220, overflow: 'auto' }}>
+                      {addableAdmins.map(m => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => { addEventAdmin(eventId, m.id); setAdminAddOpen(false); }}
+                          style={{ ...menuItemStyle, padding: '8px 13px' }}
+                        >
+                          <Avatar staffId={m.id} size={28} />
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>{m.name}</span>
+                        </button>
+                      ))}
+                      {addableAdmins.length === 0 && (
+                        <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-faint)', fontSize: 12.5 }}>
+                          Everyone's already an event admin.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 const menuItemStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  textAlign: 'left',
-  padding: '8px 12px',
-  border: 'none',
-  background: 'transparent',
-  color: 'var(--text)',
-  fontSize: 13,
-  cursor: 'pointer',
+  display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+  padding: '11px 14px', border: 'none', background: 'transparent', color: 'var(--text)',
+  fontSize: 13, fontWeight: 600, cursor: 'pointer',
 };
 
 const pillStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  background: 'var(--panel-2)',
-  border: '1px solid var(--border)',
-  borderRadius: 999,
-  padding: '4px 10px 4px 4px',
+  display: 'flex', alignItems: 'center', gap: 8,
+  background: 'var(--panel-2)', border: '1px solid var(--border-strong)',
+  borderRadius: 20, padding: '4px 11px 4px 4px',
 };
 
 const pillRemoveStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 18,
-  height: 18,
-  borderRadius: '50%',
-  border: 'none',
-  background: 'var(--control)',
-  color: 'var(--text-muted)',
-  cursor: 'pointer',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  width: 18, height: 18, border: 'none', background: 'transparent',
+  color: 'var(--text-faint)', cursor: 'pointer',
 };
 
 function InfoCard({ item, admin, onClick, onRemove }: { item: InfoItem; admin: boolean; onClick: () => void; onRemove: () => void }) {
   const isDoc = item.kind === 'doc';
-  const hasLink = item.kind === 'link' && !!item.url;
+  const empty = isDoc ? !(item.content || '').trim() : !(item.url || '').trim();
+  const active = !empty;
+  const sub = isDoc
+    ? (empty ? (admin ? 'Tap to write the brief' : 'Not added yet') : 'Document')
+    : (empty ? (admin ? 'Tap to set link' : 'Not added yet') : (item.url || '').replace(/^https?:\/\//, ''));
+  const isSeed = item.id === 'doc1' || item.id === 'lnk-photo' || item.id === 'lnk-arena';
+  const showRemove = admin && !isSeed;
+
+  const iconBg = isDoc
+    ? (active ? 'color-mix(in srgb, #2B579A 85%, #000)' : 'var(--field)')
+    : (active ? 'color-mix(in srgb, var(--accent-deep) 16%, transparent)' : 'var(--field)');
+
   return (
     <div
-      style={{
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        background: 'var(--panel)',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        padding: '10px 30px 10px 12px',
-        cursor: 'pointer',
-        minWidth: 140,
-      }}
       onClick={onClick}
       title={item.name}
+      style={{
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 11,
+        minWidth: 190, maxWidth: 240, padding: '11px 13px', borderRadius: 11,
+        background: 'var(--panel-2)', border: '1px solid ' + (empty ? 'var(--border)' : 'var(--border-strong)'),
+        cursor: 'pointer', opacity: empty && !admin ? 0.55 : 1,
+      }}
     >
-      {isDoc ? <FileText size={16} color="var(--accent)" /> : (hasLink ? <ExternalLink size={16} color="var(--accent)" /> : <Link2 size={16} color="var(--text-muted)" />)}
-      <span style={{ fontSize: 13, color: 'var(--text)' }}>{item.name}</span>
-      {admin && (
+      <div
+        style={{
+          width: 40, height: 40, borderRadius: 9, flex: '0 0 40px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', background: iconBg,
+          filter: empty ? 'grayscale(.6)' : 'none', opacity: empty ? 0.7 : 1,
+          color: isDoc && active ? '#fff' : (active ? 'var(--accent)' : 'var(--text-muted)'),
+        }}
+      >
+        {isDoc ? <FileText size={18} /> : <Link2 size={18} />}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+        <div style={{ fontSize: 10.5, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>
+      </div>
+      {showRemove && (
         <button
           type="button"
           onClick={e => { e.stopPropagation(); onRemove(); }}
-          style={{
-            position: 'absolute', top: 6, right: 6, display: 'inline-flex',
-            alignItems: 'center', justifyContent: 'center', width: 18, height: 18,
-            borderRadius: '50%', border: 'none', background: 'var(--control)',
-            color: 'var(--text-muted)', cursor: 'pointer',
-          }}
+          style={{ position: 'absolute', top: 6, right: 6, border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', display: 'inline-flex' }}
           title="Remove"
         >
-          <X size={11} />
+          <X size={13} />
         </button>
       )}
     </div>

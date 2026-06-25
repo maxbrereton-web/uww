@@ -1,41 +1,30 @@
 import type React from 'react';
-import { X, Plus } from 'lucide-react';
 import { useStore, isAdmin } from '../../../store';
 import type { PostingItem } from '../../../types';
-import { eventDayList, formatDateFull } from '../../../data/utils';
+import { eventDayList, formatDayMon } from '../../../data/utils';
 import { POST_TYPES } from '../../../data/seed';
 
 const condensed: React.CSSProperties = {
-  fontStretch: '75%',
-  fontWeight: 800,
-  textTransform: 'uppercase',
-  letterSpacing: '.02em',
+  fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
 };
 
-const inputStyle: React.CSSProperties = {
-  background: 'var(--field)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  color: 'var(--text)',
-  fontSize: 13,
-  padding: '5px 7px',
-  width: '100%',
-  boxSizing: 'border-box',
+const GRID = '70px 130px 1.3fr 1.3fr 1fr 1.6fr 40px';
+
+const cellInput: React.CSSProperties = {
+  width: '100%', background: 'transparent', border: 'none', color: 'var(--text)',
+  fontSize: 12.5, fontFamily: 'inherit', outline: 'none', padding: '2px 0',
 };
 
-const COLUMNS: { key: keyof PostingItem; label: string }[] = [
-  { key: 'type', label: 'Type' },
-  { key: 'name', label: 'Name' },
-  { key: 'link', label: 'Link' },
-  { key: 'athlete', label: 'Athlete' },
-  { key: 'caption', label: 'Caption' },
-];
+const headStyle: React.CSSProperties = {
+  display: 'grid', gridTemplateColumns: GRID, background: 'var(--panel-2)',
+  borderBottom: '1px solid var(--border)', fontSize: 10.5, color: 'var(--text-muted)',
+  textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 700,
+};
 
 export default function PostingScheduleTab({ eventId }: { eventId: string }) {
   const ev = useStore(s => s.events.find(e => e.id === eventId) || s.archivedEvents.find(e => e.id === eventId));
   const detail = useStore(s => s.detail[eventId]);
   const admin = useStore(isAdmin);
-  const viewMode = useStore(s => s.viewMode);
   const postingDayIdx = useStore(s => s.postingDayIdx);
   const setPostingDayIdx = useStore(s => s.setPostingDayIdx);
   const addPostingRow = useStore(s => s.addPostingRow);
@@ -45,188 +34,110 @@ export default function PostingScheduleTab({ eventId }: { eventId: string }) {
   if (!ev) return null;
 
   const days = ['Pre-Event', ...eventDayList(ev.start, ev.end), 'Post-Event'];
-  const safeIdx = Math.min(Math.max(postingDayIdx, 0), days.length - 1);
-  const dayKey = days[safeIdx];
+  const idx = Math.min(Math.max(postingDayIdx, 0), days.length - 1);
+  const dayKey = days[idx];
   const rows = detail?.posting[dayKey] || [];
   const ro = !admin;
 
-  const labelFor = (d: string) => (d === 'Pre-Event' || d === 'Post-Event') ? d : formatDateFull(d);
+  const dayLabel = (dayKey === 'Pre-Event' || dayKey === 'Post-Event')
+    ? dayKey
+    : `Day ${idx} · ${formatDayMon(dayKey)}`;
+
+  const set = (rowIdx: number, patch: Partial<PostingItem>) => updatePostingRow(eventId, dayKey, rowIdx, patch);
 
   return (
     <div>
-      {/* Day navigator */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 14 }}>
-        {days.map((d, i) => {
-          const active = i === safeIdx;
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => setPostingDayIdx(i)}
-              style={{
-                ...condensed,
-                fontSize: 11,
-                whiteSpace: 'nowrap',
-                padding: '6px 12px',
-                borderRadius: 8,
-                border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: active ? 'var(--accent)' : 'var(--control)',
-                color: active ? '#fff' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
-            >
-              {labelFor(d)}
-            </button>
-          );
-        })}
+      {/* Centered day navigator */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, marginBottom: 18 }}>
+        <span
+          onClick={() => setPostingDayIdx(Math.max(0, idx - 1))}
+          style={{ cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)', userSelect: 'none' }}
+        >
+          ‹
+        </span>
+        <span style={{ ...condensed, fontSize: 17, minWidth: 170, textAlign: 'center' }}>{dayLabel}</span>
+        <span
+          onClick={() => setPostingDayIdx(Math.min(days.length - 1, idx + 1))}
+          style={{ cursor: 'pointer', fontSize: 18, color: 'var(--text-muted)', userSelect: 'none' }}
+        >
+          ›
+        </span>
       </div>
 
-      {viewMode === 'mobile' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {rows.map((row, idx) => (
-            <div key={idx} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={row.posted}
-                  disabled={ro}
-                  onChange={e => updatePostingRow(eventId, dayKey, idx, { posted: e.target.checked })}
-                />
-                <span style={{ ...condensed, fontSize: 11, color: 'var(--text-muted)' }}>Posted</span>
-                {admin && (
-                  <button type="button" onClick={() => removePostingRow(eventId, dayKey, idx)} style={{ ...removeBtn, marginLeft: 'auto' }} title="Remove">
-                    <X size={13} />
-                  </button>
-                )}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={headStyle}>
+          <div style={{ padding: '11px 12px' }}>Posted</div>
+          <div style={{ padding: '11px 12px' }}>Post Type</div>
+          <div style={{ padding: '11px 12px' }}>Name</div>
+          <div style={{ padding: '11px 12px' }}>Link</div>
+          <div style={{ padding: '11px 12px' }}>Athlete</div>
+          <div style={{ padding: '11px 12px' }}>Caption</div>
+          <div />
+        </div>
+
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: GRID, borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+            <div style={{ padding: '10px 12px' }}>
+              <div
+                onClick={ro ? undefined : () => set(i, { posted: !row.posted })}
+                style={{
+                  width: 20, height: 20, borderRadius: 5, border: '1.5px solid var(--border-strong)',
+                  background: row.posted ? '#2e9e5b' : 'transparent', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', color: '#fff', fontSize: 12, cursor: ro ? 'default' : 'pointer',
+                }}
+              >
+                {row.posted ? '✓' : ''}
               </div>
-              {COLUMNS.map(col => (
-                <div key={col.key} style={{ marginBottom: 8 }}>
-                  <div style={{ ...condensed, fontSize: 10, color: 'var(--text-muted)', marginBottom: 3 }}>{col.label}</div>
-                  {col.key === 'type' ? (
-                    <select
-                      style={inputStyle}
-                      disabled={ro}
-                      value={row.type}
-                      onChange={e => updatePostingRow(eventId, dayKey, idx, { type: e.target.value })}
-                    >
-                      {POST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      style={inputStyle}
-                      readOnly={ro}
-                      value={String(row[col.key])}
-                      onChange={e => updatePostingRow(eventId, dayKey, idx, { [col.key]: e.target.value } as Partial<PostingItem>)}
-                    />
-                  )}
-                </div>
-              ))}
             </div>
-          ))}
-          {rows.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>No posts for this day.</div>}
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Posted</th>
-                {COLUMNS.map(c => <th key={c.key} style={thStyle}>{c.label}</th>)}
-                <th style={thStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={tdStyle}>
-                    <input
-                      type="checkbox"
-                      checked={row.posted}
-                      disabled={ro}
-                      onChange={e => updatePostingRow(eventId, dayKey, idx, { posted: e.target.checked })}
-                    />
-                  </td>
-                  <td style={tdStyle}>
-                    <select
-                      style={inputStyle}
-                      disabled={ro}
-                      value={row.type}
-                      onChange={e => updatePostingRow(eventId, dayKey, idx, { type: e.target.value })}
-                    >
-                      {POST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </td>
-                  <td style={tdStyle}>
-                    <input type="text" style={inputStyle} readOnly={ro} value={row.name} onChange={e => updatePostingRow(eventId, dayKey, idx, { name: e.target.value })} />
-                  </td>
-                  <td style={tdStyle}>
-                    <input type="text" style={inputStyle} readOnly={ro} value={row.link} onChange={e => updatePostingRow(eventId, dayKey, idx, { link: e.target.value })} />
-                  </td>
-                  <td style={tdStyle}>
-                    <input type="text" style={inputStyle} readOnly={ro} value={row.athlete} onChange={e => updatePostingRow(eventId, dayKey, idx, { athlete: e.target.value })} />
-                  </td>
-                  <td style={tdStyle}>
-                    <input type="text" style={inputStyle} readOnly={ro} value={row.caption} onChange={e => updatePostingRow(eventId, dayKey, idx, { caption: e.target.value })} />
-                  </td>
-                  <td style={tdStyle}>
-                    {admin && (
-                      <button type="button" onClick={() => removePostingRow(eventId, dayKey, idx)} style={removeBtn} title="Remove">
-                        <X size={13} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ ...tdStyle, color: 'var(--text-muted)' }}>No posts for this day.</td></tr>
+            <div style={{ padding: '10px 12px' }}>
+              <select
+                value={row.type}
+                disabled={ro}
+                onChange={e => set(i, { type: e.target.value })}
+                style={{ width: '100%', background: 'var(--field)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', color: 'var(--text)', fontSize: 12, fontFamily: 'inherit' }}
+              >
+                {POST_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <input value={row.name} readOnly={ro} placeholder="Post name..." onChange={e => set(i, { name: e.target.value })} style={cellInput} />
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <input value={row.link} readOnly={ro} placeholder="Paste Dropbox link..." onChange={e => set(i, { link: e.target.value })} style={cellInput} />
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <input value={row.athlete} readOnly={ro} placeholder="Athlete..." onChange={e => set(i, { athlete: e.target.value })} style={cellInput} />
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              <textarea value={row.caption} readOnly={ro} placeholder="Caption..." rows={1} onChange={e => set(i, { caption: e.target.value })} style={{ ...cellInput, resize: 'none', lineHeight: 1.4, minHeight: 20 }} />
+            </div>
+            <div style={{ padding: '10px 12px' }}>
+              {admin && (
+                <span onClick={() => removePostingRow(eventId, dayKey, i)} style={{ cursor: 'pointer', color: 'var(--text-faint)', fontSize: 15 }}>×</span>
               )}
-            </tbody>
-          </table>
-        </div>
-      )}
+            </div>
+          </div>
+        ))}
+
+        {rows.length === 0 && (
+          <div style={{ padding: 26, textAlign: 'center', color: 'var(--text-faint)', fontSize: 13 }}>
+            No posts scheduled for this day yet.
+          </div>
+        )}
+      </div>
 
       {admin && (
-        <button
-          type="button"
+        <div
           onClick={() => addPostingRow(eventId, dayKey)}
           style={{
-            ...condensed, fontSize: 11, marginTop: 12,
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            border: '1px solid var(--border)', borderRadius: 6,
-            background: 'var(--control)', color: 'var(--text-muted)',
-            padding: '6px 12px', cursor: 'pointer',
+            marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 7,
+            background: 'var(--control)', border: '1px solid var(--border-strong)', borderRadius: 8,
+            padding: '8px 14px', cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
           }}
         >
-          <Plus size={13} /> Add post
-        </button>
+          + Add post
+        </div>
       )}
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  ...condensed,
-  fontSize: 10,
-  color: 'var(--text-muted)',
-  textAlign: 'left',
-  padding: '6px 8px',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '6px 8px',
-  verticalAlign: 'middle',
-};
-
-const removeBtn: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 24,
-  height: 24,
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  background: 'var(--control)',
-  color: 'var(--text-muted)',
-  cursor: 'pointer',
-};

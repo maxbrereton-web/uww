@@ -1,9 +1,6 @@
 import type React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore, eventNotifCount, visibleEvents } from '../../store';
 import type { NotifTab } from '../../types';
-import PriorityDot from '../common/PriorityDot';
-import { formatDateFull, eventTypeLabel } from '../../data/utils';
 import EventInfoTab from './tabs/EventInfoTab';
 import EventScheduleTab from './tabs/EventScheduleTab';
 import EventTeamTab from './tabs/EventTeamTab';
@@ -21,9 +18,9 @@ const condensed: React.CSSProperties = {
 
 const TABS: { tab: NotifTab; label: string }[] = [
   { tab: 'info', label: 'Event Info' },
-  { tab: 'schedule', label: 'Schedule' },
+  { tab: 'schedule', label: 'Event Schedule' },
+  { tab: 'posting', label: 'Posting Schedule' },
   { tab: 'staffRoles', label: 'Event Team' },
-  { tab: 'posting', label: 'Posting' },
   { tab: 'flights', label: 'Availability & Flights' },
   { tab: 'notifications', label: 'Notifications' },
   { tab: 'requests', label: 'Comments' },
@@ -49,18 +46,15 @@ export default function EventDetail() {
   const prevId = idx > 0 ? vis[idx - 1].id : null;
   const nextId = idx >= 0 && idx < vis.length - 1 ? vis[idx + 1].id : null;
 
-  const chevBtn = (enabled: boolean): React.CSSProperties => ({
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    border: '1px solid var(--border)',
-    background: 'var(--control)',
-    color: enabled ? 'var(--text)' : 'var(--text-faint)',
-    cursor: enabled ? 'pointer' : 'default',
+  const chev = (enabled: boolean): React.CSSProperties => ({
     flex: '0 0 auto',
+    fontSize: 24,
+    lineHeight: 1,
+    padding: '0 6px',
+    background: 'none',
+    color: enabled ? 'var(--text-muted)' : 'var(--text-faint)',
+    cursor: enabled ? 'pointer' : 'default',
+    userSelect: 'none',
   });
 
   const renderTab = () => {
@@ -77,95 +71,101 @@ export default function EventDetail() {
   };
 
   return (
-    <div style={{ padding: 22, maxWidth: 1100, margin: '0 auto', width: '100%', overflow: 'auto', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+    <div style={{ padding: '20px 24px 28px', width: '100%', boxSizing: 'border-box' }}>
+      {/* Title row: ‹ centered-name › */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
         <button
           type="button"
-          style={chevBtn(!!prevId)}
+          style={chev(!!prevId)}
           onClick={() => prevId && selectEvent(prevId)}
           disabled={!prevId}
           title="Previous event"
         >
-          <ChevronLeft size={18} />
+          ‹
         </button>
-        <div style={{ ...condensed, fontSize: 24, color: 'var(--text)', flex: 1, lineHeight: 1.1 }}>
+        <div style={{ ...condensed, fontSize: 19, color: 'var(--text)', flex: 1, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {ev.name}
         </div>
         <button
           type="button"
-          style={chevBtn(!!nextId)}
+          style={chev(!!nextId)}
           onClick={() => nextId && selectEvent(nextId)}
           disabled={!nextId}
           title="Next event"
         >
-          <ChevronRight size={18} />
+          ›
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, color: 'var(--text-muted)' }}>
-        <PriorityDot priority={ev.priority} />
-        <span style={{ ...condensed, fontSize: 12 }}>{eventTypeLabel(ev.eventType)}</span>
-        <span style={{ color: 'var(--text-faint)' }}>·</span>
-        <span style={{ fontSize: 13 }}>{formatDateFull(ev.start)} – {formatDateFull(ev.end)}</span>
-      </div>
-
+      {/* Panel: tab bar + content */}
       <div
         style={{
-          display: 'flex',
-          gap: 6,
-          overflowX: 'auto',
-          borderBottom: '1px solid var(--border)',
-          marginBottom: 18,
-          paddingBottom: 2,
+          background: 'var(--panel)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          boxShadow: 'var(--shadow)',
         }}
       >
-        {TABS.map(({ tab, label }) => {
-          const active = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setEventTab(tab)}
-              style={{
-                ...condensed,
-                fontSize: 12,
-                whiteSpace: 'nowrap',
-                padding: '8px 12px',
-                border: 'none',
-                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                background: 'transparent',
-                color: active ? 'var(--text)' : 'var(--text-muted)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              {label}
-              {tab === 'notifications' && notifCount > 0 && (
-                <span
-                  style={{
-                    background: 'var(--accent)',
-                    color: '#fff',
-                    borderRadius: 999,
-                    fontSize: 10,
-                    minWidth: 16,
-                    height: 16,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0 5px',
-                  }}
-                >
-                  {notifCount}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+        <div
+          style={{
+            display: 'flex',
+            background: 'var(--panel-2)',
+            borderBottom: '1px solid var(--border)',
+            overflowX: 'auto',
+          }}
+        >
+          {TABS.map(({ tab, label }) => {
+            const active = activeTab === tab;
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setEventTab(tab)}
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  padding: '13px 6px',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  color: active ? 'var(--text)' : 'var(--text-muted)',
+                  background: active ? 'var(--panel)' : 'transparent',
+                  borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                {label}
+                {tab === 'notifications' && notifCount > 0 && (
+                  <span
+                    style={{
+                      background: '#ED1C24',
+                      color: '#fff',
+                      borderRadius: 6,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      minWidth: 16,
+                      height: 16,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 5px',
+                    }}
+                  >
+                    {notifCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-      <div>{renderTab()}</div>
+        <div style={{ padding: 24 }}>{renderTab()}</div>
+      </div>
     </div>
   );
 }

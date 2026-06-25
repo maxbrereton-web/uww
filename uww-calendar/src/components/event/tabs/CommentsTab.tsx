@@ -1,6 +1,6 @@
 import type React from 'react';
 import { Paperclip } from 'lucide-react';
-import { useStore, isAdmin, currentUser } from '../../../store';
+import { useStore, isAdmin, currentUser, effectiveView } from '../../../store';
 import type { Comment } from '../../../types';
 import Avatar from '../../common/Avatar';
 
@@ -23,6 +23,7 @@ const orangeBtn: React.CSSProperties = {
 export default function CommentsTab({ eventId }: { eventId: string }) {
   const detail = useStore(s => s.detail[eventId]);
   const admin = useStore(isAdmin);
+  const isMobile = useStore(effectiveView) === 'mobile';
   const cu = useStore(currentUser);
   const staff = useStore(s => s.staff);
   const addCommentReply = useStore(s => s.addCommentReply);
@@ -81,23 +82,23 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
 
             {/* Reply composer / re-open */}
             {!resolved ? (
-              <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginTop: 13 }}>
+              <div style={{ display: 'flex', gap: 9, alignItems: 'center', marginTop: 13, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
                 <input
-                  style={composerInput}
+                  style={{ ...composerInput, ...(isMobile ? { flex: '1 1 100%' } : {}) }}
                   placeholder="Write a reply…"
                   value={thread.draft}
                   onChange={e => setCommentDraft(eventId, thread.id, e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && thread.draft.trim()) addCommentReply(eventId, thread.id, thread.draft.trim()); }}
                 />
                 <button type="button" style={clipBtn} title="Attach a file"><Paperclip size={17} /></button>
-                <button type="button" style={orangeBtn} disabled={!thread.draft.trim()} onClick={() => thread.draft.trim() && addCommentReply(eventId, thread.id, thread.draft.trim())}>
+                <button type="button" style={{ ...orangeBtn, ...(isMobile ? { flex: 1 } : {}) }} disabled={!thread.draft.trim()} onClick={() => thread.draft.trim() && addCommentReply(eventId, thread.id, thread.draft.trim())}>
                   Reply
                 </button>
                 {admin && (
                   <button
                     type="button"
                     onClick={() => resolveComment(eventId, thread.id)}
-                    style={{ background: 'color-mix(in srgb, #2e9e5b 18%, transparent)', color: '#2e9e5b', border: '1px solid #2e9e5b', borderRadius: 9, padding: '11px 16px', cursor: 'pointer', fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap' }}
+                    style={{ background: 'color-mix(in srgb, #2e9e5b 18%, transparent)', color: '#2e9e5b', border: '1px solid #2e9e5b', borderRadius: 9, padding: '11px 16px', cursor: 'pointer', fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap', ...(isMobile ? { flex: 1 } : {}) }}
                   >
                     Resolve
                   </button>
@@ -117,16 +118,16 @@ export default function CommentsTab({ eventId }: { eventId: string }) {
       })}
 
       {/* New comment composer */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <input
-          style={composerInput}
+          style={{ ...composerInput, ...(isMobile ? { flex: '1 1 100%' } : {}) }}
           placeholder="Message the admin team…"
           value={detail.newRequest}
           onChange={e => setNewRequest(eventId, e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && detail.newRequest.trim()) addNewRequest(eventId, detail.newRequest.trim()); }}
         />
         <button type="button" style={clipBtn} title="Attach a file"><Paperclip size={17} /></button>
-        <button type="button" style={orangeBtn} disabled={!detail.newRequest.trim()} onClick={() => detail.newRequest.trim() && addNewRequest(eventId, detail.newRequest.trim())}>
+        <button type="button" style={{ ...orangeBtn, ...(isMobile ? { flex: 1 } : {}) }} disabled={!detail.newRequest.trim()} onClick={() => detail.newRequest.trim() && addNewRequest(eventId, detail.newRequest.trim())}>
           Send
         </button>
       </div>

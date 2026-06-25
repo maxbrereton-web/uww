@@ -1,6 +1,6 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
-import { Search, Users, X, ArrowLeft, Paperclip } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Search, Users, X, ArrowLeft, Paperclip, Camera } from 'lucide-react';
 import { useStore, currentUser } from '../../store';
 import type { Message } from '../../types';
 import Avatar from '../common/Avatar';
@@ -24,12 +24,40 @@ const sectionLabel: React.CSSProperties = {
   fontWeight: 700, padding: '14px 14px 8px',
 };
 
+const modalLabel: React.CSSProperties = {
+  fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em',
+  fontWeight: 700, display: 'block', marginBottom: 9,
+};
+
 function dmKey(a: string, b: string): string {
   return [a, b].sort().join('|');
 }
 
+function cropSquare(file: File, cb: (dataUrl: string) => void) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      const sx = (img.width - side) / 2;
+      const sy = (img.height - side) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, 256, 256);
+      cb(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.src = reader.result as string;
+  };
+  reader.readAsDataURL(file);
+}
+
 function NewGroupModal() {
   const staff = useStore(s => s.staff);
+  const events = useStore(s => s.events);
+  const detail = useStore(s => s.detail);
+  const cu = useStore(currentUser);
   const setNewGroupModal = useStore(s => s.setNewGroupModal);
   const newGroupName = useStore(s => s.newGroupName);
   const setNewGroupName = useStore(s => s.setNewGroupName);
@@ -37,40 +65,92 @@ function NewGroupModal() {
   const setNewGroupMembers = useStore(s => s.setNewGroupMembers);
   const createGroup = useStore(s => s.createGroup);
 
+  const others = staff.filter(m => m.id !== cu);
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  const [eventId, setEventId] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // default: everyone ticked
+  useEffect(() => {
+    if (newGroupMembers.length === 0) setNewGroupMembers(others.map(m => m.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const toggleMember = (id: string) => {
     setNewGroupMembers(newGroupMembers.includes(id) ? newGroupMembers.filter(m => m !== id) : [...newGroupMembers, id]);
   };
 
+  const onPickEvent = (id: string) => {
+    setEventId(id);
+    if (!id) return;
+    const ev = events.find(e => e.id === id);
+    if (!ev) return;
+    const team = (detail[id]?.members?.map(m => m.id) ?? ev.staff).filter(mid => mid !== cu);
+    setNewGroupMembers([...new Set(team)]);
+    setNewGroupName(ev.name);
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) cropSquare(file, setPhoto);
+  };
+
+  const create = () => {
+    if (newGroupMembers.length === 0) return;
+    createGroup(newGroupName.trim() || 'New Group', [cu, ...newGroupMembers], photo);
+  };
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setNewGroupModal(false)}>
-      <div className="uww-overlay" style={{ width: 420, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 22 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ ...condensed, fontSize: 16 }}>New Group</div>
-          <button onClick={() => setNewGroupModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }} aria-label="Close"><X size={18} /></button>
+      <div className="uww-overlay" style={{ width: 480, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: 'var(--shadow)', padding: 26 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <div style={{ ...condensed, fontSize: 19 }}>New Group</div>
+          <button onClick={() => setNewGroupModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }} aria-label="Close"><X size={20} /></button>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ ...sectionLabel, padding: 0, marginBottom: 6, display: 'block' }}>Group Name</label>
-          <input value={newGroupName} placeholder="Group name" onChange={e => setNewGroupName(e.target.value)} style={{ width: '100%', padding: '10px 12px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13, outline: 'none' }} />
-        </div>
-        <div style={{ marginBottom: 22 }}>
-          <label style={{ ...sectionLabel, padding: 0, marginBottom: 8, display: 'block' }}>Members</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {staff.map(m => {
-              const checked = newGroupMembers.includes(m.id);
-              return (
-                <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', background: checked ? 'var(--control)' : 'transparent' }}>
-                  <input type="checkbox" checked={checked} onChange={() => toggleMember(m.id)} style={{ cursor: 'pointer' }} />
-                  <Avatar staffId={m.id} size={26} />
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{m.name}</span>
-                </label>
-              );
-            })}
+
+        {/* Icon + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
+          <div
+            onClick={() => fileRef.current?.click()}
+            title="Upload group icon"
+            style={{ position: 'relative', width: 64, height: 64, borderRadius: '50%', flex: '0 0 64px', cursor: 'pointer', background: photo ? `center/cover no-repeat url(${photo})` : 'var(--accent-deep)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {!photo && <span style={{ color: '#fff', fontSize: 30, fontWeight: 800 }}>#</span>}
+            <div style={{ position: 'absolute', right: -2, bottom: -2, width: 24, height: 24, borderRadius: '50%', background: 'var(--accent-deep)', border: '3px solid var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+              <Camera size={11} />
+            </div>
           </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+          <input value={newGroupName} placeholder="Group name" onChange={e => setNewGroupName(e.target.value)} style={{ flex: 1, padding: '13px 15px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 15, outline: 'none', fontFamily: 'inherit' }} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={() => setNewGroupModal(false)} style={{ ...condensed, fontSize: 12, padding: '9px 16px', cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--control)', color: 'var(--text)' }}>Cancel</button>
-          <button onClick={() => createGroup(newGroupName.trim() || 'New Group', newGroupMembers)} disabled={newGroupMembers.length === 0} style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: newGroupMembers.length ? 'var(--accent-deep)' : 'var(--control)', color: newGroupMembers.length ? '#fff' : 'var(--text-faint)', cursor: newGroupMembers.length ? 'pointer' : 'not-allowed' }}>Create</button>
+
+        {/* Create from event */}
+        <label style={modalLabel}>Create from event</label>
+        <select value={eventId} onChange={e => onPickEvent(e.target.value)} style={{ width: '100%', padding: '13px 14px', background: 'var(--field)', color: eventId ? 'var(--text)' : 'var(--text-muted)', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', marginBottom: 22, cursor: 'pointer' }}>
+          <option value="">Choose event</option>
+          {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+        </select>
+
+        {/* Members */}
+        <label style={modalLabel}>Add members</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
+          {others.map(m => {
+            const checked = newGroupMembers.includes(m.id);
+            return (
+              <div key={m.id} onClick={() => toggleMember(m.id)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 4px', cursor: 'pointer' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, border: '1.5px solid ' + (checked ? 'var(--border-strong)' : 'var(--border-strong)'), background: checked ? 'var(--field)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text)', fontSize: 13, flex: '0 0 22px' }}>
+                  {checked ? '✓' : ''}
+                </div>
+                <Avatar staffId={m.id} size={34} />
+                <span style={{ fontSize: 14.5, fontWeight: 700 }}>{m.name}</span>
+              </div>
+            );
+          })}
         </div>
+
+        <button onClick={create} disabled={newGroupMembers.length === 0} style={{ ...condensed, fontSize: 15, width: '100%', padding: '15px', borderRadius: 11, border: 'none', background: newGroupMembers.length ? 'var(--accent-deep)' : 'var(--control)', color: newGroupMembers.length ? '#fff' : 'var(--text-faint)', cursor: newGroupMembers.length ? 'pointer' : 'not-allowed', boxShadow: newGroupMembers.length ? '0 6px 16px rgba(241,90,34,.32)' : 'none' }}>
+          Create Group
+        </button>
       </div>
     </div>
   );

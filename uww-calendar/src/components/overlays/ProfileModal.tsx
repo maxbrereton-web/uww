@@ -1,7 +1,8 @@
 import type React from 'react';
 import { useRef, useState } from 'react';
 import { X, Camera, AtSign } from 'lucide-react';
-import { useStore, currentUser } from '../../store';
+import { useStore, currentUser, effectiveView } from '../../store';
+import type { Role } from '../../types';
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
@@ -49,6 +50,11 @@ export default function ProfileModal() {
   const setInstagram = useStore(s => s.setInstagram);
   const openTutorial = useStore(s => s.openTutorial);
   const close = useStore(s => s.closeProfile);
+  const isMobile = useStore(effectiveView) === 'mobile';
+  const role = useStore(s => s.role);
+  const setRole = useStore(s => s.setRole);
+  const theme = useStore(s => s.theme);
+  const toggleTheme = useStore(s => s.toggleTheme);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [editingEmail, setEditingEmail] = useState(false);
@@ -195,6 +201,56 @@ export default function ProfileModal() {
             </button>
           </div>
         </div>
+
+        {/* Role + theme (mobile only — desktop has these in the sidebar) */}
+        {isMobile && (
+          <div style={{ marginBottom: 22 }}>
+            <label style={labelStyle}>Role</label>
+            <div style={{ display: 'flex', background: 'var(--control)', borderRadius: 10, padding: 4, gap: 4, marginBottom: 12 }}>
+              {(['admin', 'staff', 'freelance'] as Role[]).map(r => {
+                const on = role === r;
+                return (
+                  <button
+                    key={r}
+                    onClick={() => setRole(r)}
+                    style={{
+                      flex: 1, padding: '11px 0', borderRadius: 7, cursor: 'pointer', border: 'none',
+                      background: on ? 'var(--accent-deep)' : 'transparent',
+                      color: on ? '#fff' : 'var(--text-muted)',
+                      ...condensed, fontSize: 13,
+                    }}
+                  >
+                    {r === 'admin' ? 'Admin' : r === 'staff' ? 'Staff' : 'Freelance'}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Dark / light mode */}
+            <button
+              onClick={toggleTheme}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'var(--control)', border: 'none', borderRadius: 10, padding: '14px 16px', cursor: 'pointer' }}
+            >
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                {theme === 'dark' ? 'Dark mode' : 'Light mode'}
+              </span>
+              <span
+                style={{
+                  position: 'relative', width: 50, height: 28, borderRadius: 999, flex: '0 0 auto',
+                  background: theme === 'light' ? 'var(--accent-deep)' : 'var(--field)',
+                  border: '1px solid var(--border-strong)', transition: 'background .15s',
+                }}
+              >
+                <span
+                  style={{
+                    position: 'absolute', top: 2, left: theme === 'light' ? 24 : 2,
+                    width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left .15s',
+                  }}
+                />
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Watch Tutorial CTA */}
         <button

@@ -16,6 +16,7 @@ export default function EventScheduleTab({ eventId }: { eventId: string }) {
   const admin = useStore(isAdmin);
   const addScheduleItem = useStore(s => s.addScheduleItem);
   const updateScheduleItem = useStore(s => s.updateScheduleItem);
+  const removeScheduleItem = useStore(s => s.removeScheduleItem);
 
   if (!ev) return null;
   const days = eventDayList(ev.start, ev.end);
@@ -52,6 +53,17 @@ export default function EventScheduleTab({ eventId }: { eventId: string }) {
                     onChange={e => updateScheduleItem(eventId, day, idx, { label: e.target.value })}
                     style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, outline: 'none' }}
                   />
+                  {admin && (
+                    <button
+                      type="button"
+                      onClick={() => removeScheduleItem(eventId, day, idx)}
+                      aria-label="Remove session"
+                      title="Remove session"
+                      style={{ flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               ))}
               {rows.length === 0 && !admin && (

@@ -77,27 +77,41 @@ export default function TutorialOverlay() {
     // Get the target on screen (open the event etc.) but don't switch to its tab yet.
     s.prepare?.();
 
-    timers.push(setTimeout(() => {
+    // Poll briefly for the target — on mobile, navigating/opening the event can take an
+    // extra render or two before the element exists.
+    const findTarget = (tries: number, cb: (el: Element | null) => void) => {
       const el = s.tut ? document.querySelector(`[data-tut="${s.tut}"]`) : null;
-      if (!el) {
-        // No target on this step: gently fade the cursor + ring out where they are.
-        setCursorVisible(false);
-        setRingVisible(false);
-        return;
-      }
-      // Start the cursor gliding to the target; the ring stays hidden during travel.
-      const r = el.getBoundingClientRect();
-      setRect(r);
-      setPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-      setCursorVisible(true);
-      // When the cursor arrives: open the screen/tab, then reveal the ring on the target.
-      timers.push(setTimeout(() => {
-        s.arrive?.();
-        const fresh = (s.tut ? document.querySelector(`[data-tut="${s.tut}"]`) : null) || el;
-        setRect(fresh.getBoundingClientRect());
-        setRingVisible(true);
-      }, GLIDE_MS + 80));
-    }, 320));
+      if (el || !s.tut || tries <= 0) { cb(el); return; }
+      timers.push(setTimeout(() => findTarget(tries - 1, cb), 120));
+    };
+
+    timers.push(setTimeout(() => {
+      findTarget(6, (el) => {
+        if (!el) {
+          // No target on this step: gently fade the cursor + ring out where they are.
+          setCursorVisible(false);
+          setRingVisible(false);
+          return;
+        }
+        // Bring the target into view first — the event tab bar scrolls horizontally on
+        // mobile, so the tab being pointed at may be off-screen.
+        el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+        // Let the scroll settle, then glide the cursor to it (ring stays hidden in transit).
+        timers.push(setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          setRect(r);
+          setPos({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+          setCursorVisible(true);
+          // When the cursor arrives: open the screen/tab, then reveal the ring on the target.
+          timers.push(setTimeout(() => {
+            s.arrive?.();
+            const fresh = (s.tut ? document.querySelector(`[data-tut="${s.tut}"]`) : null) || el;
+            setRect(fresh.getBoundingClientRect());
+            setRingVisible(true);
+          }, GLIDE_MS + 80));
+        }, 150));
+      });
+    }, 300));
 
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps

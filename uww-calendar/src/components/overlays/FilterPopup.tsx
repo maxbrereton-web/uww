@@ -1,5 +1,7 @@
 import type React from 'react';
 import { useStore } from '../../store';
+import { EVENT_TYPES } from '../../data/seed';
+import { eventTypeLabel } from '../../data/utils';
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
@@ -7,11 +9,7 @@ const condensed: React.CSSProperties = {
 
 const TYPE_OPTS: Array<{ v: string; label: string }> = [
   { v: 'all', label: 'All' },
-  { v: 'wrestling', label: 'Wrestling' },
-  { v: 'continental', label: 'Continental' },
-  { v: 'rankingseries', label: 'Ranking Series' },
-  { v: 'documentary', label: 'Documentary' },
-  { v: 'devcamp', label: 'Dev Camp' },
+  ...EVENT_TYPES.map(t => ({ v: t, label: eventTypeLabel(t) })),
 ];
 
 const PRI_OPTS: Array<{ v: string; label: string }> = [

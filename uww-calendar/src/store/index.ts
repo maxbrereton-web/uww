@@ -194,6 +194,7 @@ export interface StoreState {
   login: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string; needsSetup?: string }>;
   restoreSession: () => Promise<void>;
   initChat: () => Promise<void>;
+  initData: () => Promise<void>;
   completeInvite: (userId: string, data: { name: string; username: string; password: string; photo?: string }) => void;
   logout: () => void;
   toggleTheme: () => void;
@@ -320,6 +321,7 @@ const defaultNewEventForm = (): NewEventForm => ({
 
 export const useStore = create<StoreState>((set, get) => {
   let chatInited = false;
+  let dataInited = false;
   const commit = (fn: (s: StoreState) => Partial<StoreState>) => {
     set(fn as never);
     scheduleSave(get);
@@ -380,6 +382,38 @@ export const useStore = create<StoreState>((set, get) => {
           g.id === gid && !g.messages.some(m => m.id === row.id) ? { ...g, messages: [...g.messages, msg] } : g),
       }));
     }
+  };
+
+  // ---- Events sync (Supabase) ----
+  const upsertById = (arr: UWWEvent[], ev: UWWEvent): UWWEvent[] =>
+    arr.some(e => e.id === ev.id) ? arr.map(e => (e.id === ev.id ? ev : e)) : [...arr, ev];
+
+  // Push one event (current state) up to Supabase.
+  const syncEvent = (id: string) => {
+    const s = get();
+    const archived = s.archivedEvents.some(e => e.id === id);
+    const ev = s.events.find(e => e.id === id) || s.archivedEvents.find(e => e.id === id);
+    if (!ev) return;
+    supabase.from('events').upsert({ id, data: ev, archived, updated_at: new Date().toISOString() }).then(undefined, () => {});
+  };
+  const syncEventDeleted = (id: string) => {
+    supabase.from('events').delete().eq('id', id).then(undefined, () => {});
+  };
+
+  // Apply an event change arriving from Supabase (history or realtime) to local state.
+  const applyEventRow = (eventType: string, row: { id: string; data: UWWEvent; archived: boolean }) => {
+    if (eventType === 'DELETE') {
+      commit(s => ({
+        events: s.events.filter(e => e.id !== row.id),
+        archivedEvents: s.archivedEvents.filter(e => e.id !== row.id),
+      }));
+      return;
+    }
+    const ev = row.data;
+    commit(s => ({
+      events: row.archived ? s.events.filter(e => e.id !== ev.id) : upsertById(s.events, ev),
+      archivedEvents: row.archived ? upsertById(s.archivedEvents, ev) : s.archivedEvents.filter(e => e.id !== ev.id),
+    }));
   };
 
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
@@ -509,6 +543,41 @@ export const useStore = create<StoreState>((set, get) => {
           .subscribe();
       } catch { /* ignore */ }
     },
+    initData: async () => {
+      if (dataInited) return;
+      dataInited = true;
+      try {
+        const { data, error } = await supabase.from('events').select('*');
+        if (!error && data) {
+          if (data.length === 0) {
+            // Cloud is empty (first run) → seed it from whatever we have locally.
+            const local = get();
+            const rows = [
+              ...local.events.map(e => ({ id: e.id, data: e, archived: false })),
+              ...local.archivedEvents.map(e => ({ id: e.id, data: e, archived: true })),
+            ];
+            if (rows.length) await supabase.from('events').upsert(rows).then(undefined, () => {});
+          } else {
+            // Cloud is the source of truth → load it.
+            const rows = data as { id: string; data: UWWEvent; archived: boolean }[];
+            commit(() => ({
+              events: rows.filter(r => !r.archived).map(r => r.data),
+              archivedEvents: rows.filter(r => r.archived).map(r => r.data),
+            }));
+          }
+        }
+      } catch { /* offline — local only */ }
+      // Live updates to the calendar for everyone.
+      try {
+        supabase
+          .channel('events-rt')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, payload => {
+            const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { id: string; data: UWWEvent; archived: boolean };
+            applyEventRow(payload.eventType, row);
+          })
+          .subscribe();
+      } catch { /* ignore */ }
+    },
     completeInvite: (userId, data) => {
       const s = get();
       const member = s.staff.find(m => m.id === userId);
@@ -562,6 +631,7 @@ export const useStore = create<StoreState>((set, get) => {
         start: f.start, end: f.end || f.start, staff: [], barColor: f.barColor || undefined, archived: false,
       };
       commit(st => ({ events: [...st.events, ev], showNewEvent: false, newEventForm: defaultNewEventForm() }));
+      syncEvent(id);
     },
 
     openImport: () => set({ showImport: true, importDeleted: [], importPriorities: {} }),
@@ -573,6 +643,7 @@ export const useStore = create<StoreState>((set, get) => {
         .filter(e => !s.importDeleted.includes(e.id) && !existing.has(e.name))
         .map(e => ({ ...e, id: 'ev' + Date.now() + Math.random().toString(36).slice(2, 6), priority: s.importPriorities[e.id] || e.priority }));
       commit(st => ({ events: [...st.events, ...toAdd], showImport: false }));
+      toAdd.forEach(e => syncEvent(e.id));
     },
 
     openFilter: (anchor) => set({ showFilter: true, filterAnchor: anchor || null }),
@@ -646,12 +717,14 @@ export const useStore = create<StoreState>((set, get) => {
       ...d, members: d.members.map(m => m.id === staffId ? { ...m, roles: m.roles.filter(r => r !== role) } : m),
     })),
 
-    addEventAdmin: (eventId, staffId) => commit(s => ({
-      events: s.events.map(e => e.id === eventId ? { ...e, eventAdmins: [...(e.eventAdmins || []), staffId] } : e),
-    })),
-    removeEventAdmin: (eventId, staffId) => commit(s => ({
-      events: s.events.map(e => e.id === eventId ? { ...e, eventAdmins: (e.eventAdmins || []).filter(a => a !== staffId) } : e),
-    })),
+    addEventAdmin: (eventId, staffId) => {
+      commit(s => ({ events: s.events.map(e => e.id === eventId ? { ...e, eventAdmins: [...(e.eventAdmins || []), staffId] } : e) }));
+      syncEvent(eventId);
+    },
+    removeEventAdmin: (eventId, staffId) => {
+      commit(s => ({ events: s.events.map(e => e.id === eventId ? { ...e, eventAdmins: (e.eventAdmins || []).filter(a => a !== staffId) } : e) }));
+      syncEvent(eventId);
+    },
 
     updateAvailability: (eventId, staffId, partial) => patchDetail(eventId, d => {
       const base: Availability = d.availability[staffId] || { status: 'Available', flights: false };
@@ -751,27 +824,33 @@ export const useStore = create<StoreState>((set, get) => {
       chatActive: s.chatActive === 'g:' + groupId ? null : s.chatActive,
     })),
 
-    addEvent: (event) => commit(s => ({ events: [...s.events, event] })),
-    updateEvent: (id, partial) => commit(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...partial } : e) })),
-    removeEvent: (id) => commit(s => ({ events: s.events.filter(e => e.id !== id), selectedEventId: s.selectedEventId === id ? null : s.selectedEventId })),
-    archiveEvent: (id) => commit(s => {
-      const ev = s.events.find(e => e.id === id);
-      if (!ev) return {};
-      return {
-        events: s.events.filter(e => e.id !== id),
-        archivedEvents: [...s.archivedEvents, { ...ev, archived: true }],
-        selectedEventId: s.selectedEventId === id ? null : s.selectedEventId,
-        contextMenu: null,
-      };
-    }),
-    restoreEvent: (id) => commit(s => {
-      const ev = s.archivedEvents.find(e => e.id === id);
-      if (!ev) return {};
-      return {
-        archivedEvents: s.archivedEvents.filter(e => e.id !== id),
-        events: [...s.events, { ...ev, archived: false }],
-      };
-    }),
+    addEvent: (event) => { commit(s => ({ events: [...s.events, event] })); syncEvent(event.id); },
+    updateEvent: (id, partial) => { commit(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...partial } : e) })); syncEvent(id); },
+    removeEvent: (id) => { commit(s => ({ events: s.events.filter(e => e.id !== id), selectedEventId: s.selectedEventId === id ? null : s.selectedEventId })); syncEventDeleted(id); },
+    archiveEvent: (id) => {
+      commit(s => {
+        const ev = s.events.find(e => e.id === id);
+        if (!ev) return {};
+        return {
+          events: s.events.filter(e => e.id !== id),
+          archivedEvents: [...s.archivedEvents, { ...ev, archived: true }],
+          selectedEventId: s.selectedEventId === id ? null : s.selectedEventId,
+          contextMenu: null,
+        };
+      });
+      syncEvent(id);
+    },
+    restoreEvent: (id) => {
+      commit(s => {
+        const ev = s.archivedEvents.find(e => e.id === id);
+        if (!ev) return {};
+        return {
+          archivedEvents: s.archivedEvents.filter(e => e.id !== id),
+          events: [...s.events, { ...ev, archived: false }],
+        };
+      });
+      syncEvent(id);
+    },
 
     addTemplate: (type, tpl) => commit(s => ({
       templates: type === 'events'
@@ -869,16 +948,20 @@ export const useStore = create<StoreState>((set, get) => {
       }));
     },
 
-    updateEventFlightDeadline: (eventId, date) => commit(s => ({
-      events: s.events.map(e => e.id === eventId ? { ...e, flightDeadline: date } : e),
-    })),
-    toggleReminder: (eventId, idx) => commit(s => ({
-      events: s.events.map(e => {
-        if (e.id !== eventId) return e;
-        const off = e.reminderOff || [];
-        return { ...e, reminderOff: off.includes(idx) ? off.filter(i => i !== idx) : [...off, idx] };
-      }),
-    })),
+    updateEventFlightDeadline: (eventId, date) => {
+      commit(s => ({ events: s.events.map(e => e.id === eventId ? { ...e, flightDeadline: date } : e) }));
+      syncEvent(eventId);
+    },
+    toggleReminder: (eventId, idx) => {
+      commit(s => ({
+        events: s.events.map(e => {
+          if (e.id !== eventId) return e;
+          const off = e.reminderOff || [];
+          return { ...e, reminderOff: off.includes(idx) ? off.filter(i => i !== idx) : [...off, idx] };
+        }),
+      }));
+      syncEvent(eventId);
+    },
   };
 });
 

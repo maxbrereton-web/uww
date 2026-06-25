@@ -4,102 +4,122 @@ import { Plus, X, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { useStore } from '../../store';
 import type { EventTemplate, DocTemplate, EventType, Priority } from '../../types';
 import { eventTypeLabel, genId } from '../../data/utils';
+import { AGE_RANGES, COMPETITION_TYPES_WRESTLING, COMPETITION_TYPES_CONTINENTAL } from '../../data/seed';
 import PriorityDot from '../common/PriorityDot';
+
+const BAR_COLORS = [
+  '#F15A22', '#F7941E', '#ED1C24', '#0089CF', '#1d6fae', '#AB2A4D', '#4a9460', '#2e9e5b', '#14b8a6', '#46439e',
+  '#7c3aed', '#d6457f', '#CFA63A', '#b0490c', '#64748b', '#13162a', '#c9ccd6',
+];
+
+const tplLabel: React.CSSProperties = {
+  fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em',
+  fontWeight: 700, display: 'block', marginBottom: 9,
+};
+
+const tplSelect: React.CSSProperties = {
+  width: '100%', padding: '13px 14px', background: 'var(--field)', color: 'var(--text)',
+  border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 14, outline: 'none',
+  fontFamily: 'inherit', cursor: 'pointer',
+};
 
 const condensed: React.CSSProperties = {
   fontStretch: '75%', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.02em',
 };
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '9px 11px', background: 'var(--field)', color: 'var(--text)',
-  border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, outline: 'none',
-};
-
-const labelStyle: React.CSSProperties = {
-  ...condensed, fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6,
-};
-
 const EVENT_TYPE_OPTS: Array<EventType | ''> = ['', 'wrestling', 'continental', 'rankingseries', 'documentary', 'devcamp'];
 const PRIORITIES: Priority[] = ['top', 'mid', 'low'];
-
-function modalShell(title: string, onClose: () => void, body: React.ReactNode, footer: React.ReactNode) {
-  return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      onClick={onClose}
-    >
-      <div
-        className="uww-overlay"
-        style={{ width: 440, maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: 'var(--shadow)', padding: 22 }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ ...condensed, fontSize: 16, color: 'var(--text)' }}>{title}</div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }} aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-        {body}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>{footer}</div>
-      </div>
-    </div>
-  );
-}
 
 function EditEventTemplateModal({ tpl, onClose }: { tpl: EventTemplate; onClose: () => void }) {
   const updateTemplate = useStore(s => s.updateTemplate);
   const [name, setName] = useState(tpl.name);
-  const [eventType, setEventType] = useState<EventType | ''>(tpl.eventType);
+  const [eventType, setEventType] = useState<EventType | ''>(tpl.eventType || 'wrestling');
   const [competitionType, setCompetitionType] = useState(tpl.competitionType);
   const [ageRange, setAgeRange] = useState(tpl.ageRange);
+  const [useAge, setUseAge] = useState(!!tpl.ageRange);
   const [priority, setPriority] = useState<Priority>(tpl.priority);
+  const [barColor, setBarColor] = useState(tpl.barColor || '');
+
+  const compOpts = eventType === 'continental' ? COMPETITION_TYPES_CONTINENTAL : COMPETITION_TYPES_WRESTLING;
+  const noComp = eventType === 'documentary' || eventType === 'devcamp';
 
   const save = () => {
-    updateTemplate('events', tpl.id, { name: name.trim() || 'Untitled', eventType, competitionType, ageRange, priority });
+    updateTemplate('events', tpl.id, {
+      name: name.trim() || 'Untitled', eventType, competitionType: noComp ? '' : competitionType,
+      ageRange: useAge ? ageRange : '', priority, barColor,
+    });
     onClose();
   };
 
-  return modalShell('Edit Template', onClose, (
-    <>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Name</label>
-        <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} />
-      </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Priority</label>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {PRIORITIES.map(p => (
-            <button
-              key={p}
-              onClick={() => setPriority(p)}
-              style={{ ...condensed, flex: 1, padding: '8px 6px', fontSize: 11, cursor: 'pointer', border: '1px solid var(--border)', borderRadius: 7, background: priority === p ? 'var(--accent)' : 'var(--control)', color: priority === p ? '#fff' : 'var(--text)' }}
-            >
-              {p}
-            </button>
-          ))}
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={onClose}>
+      <div className="uww-overlay" style={{ width: 480, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: 'var(--shadow)', padding: 26 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ ...condensed, fontSize: 19 }}>Event Template</div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }} aria-label="Close"><X size={20} /></button>
         </div>
-      </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Event Type</label>
-        <select style={inputStyle} value={eventType} onChange={e => setEventType(e.target.value as EventType | '')}>
-          {EVENT_TYPE_OPTS.map(t => <option key={t || 'none'} value={t}>{t === '' ? '—' : eventTypeLabel(t)}</option>)}
+
+        <input value={name} placeholder="Template name" onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '13px 15px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 10, fontSize: 15, outline: 'none', fontFamily: 'inherit', marginBottom: 18 }} />
+
+        <label style={tplLabel}>Priority</label>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
+          {PRIORITIES.map(p => {
+            const on = priority === p;
+            return (
+              <button
+                key={p}
+                onClick={() => setPriority(p)}
+                style={{ ...condensed, flex: 1, padding: '13px 6px', fontSize: 13, cursor: 'pointer', borderRadius: 10, border: '1px solid ' + (on ? '#c9ccd6' : 'var(--border-strong)'), background: on ? '#c9ccd6' : 'transparent', color: on ? '#13162a' : 'var(--text)' }}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+
+        <select value={eventType} onChange={e => setEventType(e.target.value as EventType | '')} style={{ ...tplSelect, marginBottom: 14 }}>
+          {EVENT_TYPE_OPTS.filter(Boolean).map(t => <option key={t} value={t}>{eventTypeLabel(t as EventType)}</option>)}
         </select>
+
+        {!noComp && (
+          <select value={competitionType} onChange={e => setCompetitionType(e.target.value)} style={{ ...tplSelect, marginBottom: 14, color: competitionType ? 'var(--text)' : 'var(--text-muted)' }}>
+            <option value="">Competition type…</option>
+            {compOpts.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+          <select value={ageRange} disabled={!useAge} onChange={e => setAgeRange(e.target.value)} style={{ ...tplSelect, flex: 1, color: ageRange ? 'var(--text)' : 'var(--text-muted)', opacity: useAge ? 1 : 0.5 }}>
+            <option value="">Age range…</option>
+            {AGE_RANGES.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+          <div onClick={() => setUseAge(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}>
+            <div style={{ width: 22, height: 22, borderRadius: 6, border: '1.5px solid ' + (useAge ? 'var(--accent-deep)' : 'var(--border-strong)'), background: useAge ? 'var(--accent-deep)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13 }}>{useAge ? '✓' : ''}</div>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Use</span>
+          </div>
+        </div>
+
+        <label style={tplLabel}>Calendar Bar Colour</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 22 }}>
+          {BAR_COLORS.map(c => {
+            const on = barColor === c;
+            return (
+              <div
+                key={c}
+                onClick={() => setBarColor(on ? '' : c)}
+                title={c}
+                style={{ width: 34, height: 34, borderRadius: 9, cursor: 'pointer', background: c, border: on ? '3px solid var(--text)' : '1px solid var(--border-strong)', boxShadow: on ? '0 0 0 2px var(--panel) inset' : 'none' }}
+              />
+            );
+          })}
+        </div>
+
+        <button onClick={save} style={{ ...condensed, fontSize: 15, width: '100%', padding: '15px', borderRadius: 11, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', boxShadow: '0 6px 16px rgba(241,90,34,.32)' }}>
+          Save Template
+        </button>
       </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Competition Type</label>
-        <input style={inputStyle} value={competitionType} placeholder="Competition type" onChange={e => setCompetitionType(e.target.value)} />
-      </div>
-      <div>
-        <label style={labelStyle}>Age Range</label>
-        <input style={inputStyle} value={ageRange} placeholder="Age range" onChange={e => setAgeRange(e.target.value)} />
-      </div>
-    </>
-  ), (
-    <>
-      <button onClick={onClose} style={{ ...condensed, fontSize: 12, padding: '9px 16px', cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--control)', color: 'var(--text)' }}>Cancel</button>
-      <button onClick={save} style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}>Save</button>
-    </>
-  ));
+    </div>
+  );
 }
 
 function EditDocTemplateModal({ tpl, onClose }: { tpl: DocTemplate; onClose: () => void }) {

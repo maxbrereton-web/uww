@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { X, Camera, AtSign } from 'lucide-react';
 import { useStore, currentUser } from '../../store';
 
@@ -51,6 +51,10 @@ export default function ProfileModal() {
   const close = useStore(s => s.closeProfile);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [password, setPassword] = useState('••••••••••••');
+
   if (!member) return null;
 
   const spaceIdx = member.name.indexOf(' ');
@@ -65,9 +69,8 @@ export default function ProfileModal() {
     if (file) cropSquare(file, dataUrl => updateStaff(cu, { photo: dataUrl }));
   };
 
-  const changeEmail = () => {
-    const next = window.prompt('Update your login email', member.email);
-    if (next) updateStaff(cu, { email: next });
+  const changeLink: React.CSSProperties = {
+    ...condensed, fontSize: 11, color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto',
   };
 
   return (
@@ -153,13 +156,43 @@ export default function ProfileModal() {
         {/* Login */}
         <label style={labelStyle}>Login</label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '13px' }}>
-            <span style={{ fontSize: 14, color: 'var(--text)' }}>{member.email}</span>
-            <button onClick={changeEmail} style={{ ...condensed, fontSize: 11, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Change ›</button>
+          {/* Email */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '6px 13px' }}>
+            {editingEmail ? (
+              <input
+                type="email"
+                autoFocus
+                value={member.email}
+                onChange={e => updateStaff(cu, { email: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') setEditingEmail(false); }}
+                style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 14, padding: '7px 0', outline: 'none', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <span style={{ flex: 1, fontSize: 14, color: 'var(--text)' }}>{member.email}</span>
+            )}
+            <button onClick={() => setEditingEmail(v => !v)} style={changeLink}>{editingEmail ? 'Done' : 'Change ›'}</button>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '13px' }}>
-            <span style={{ fontSize: 14, color: 'var(--text)', letterSpacing: '.15em' }}>••••••••••••</span>
-            <button onClick={() => window.prompt('Set a new password')} style={{ ...condensed, fontSize: 11, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>Change ›</button>
+          {/* Password */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9, padding: '6px 13px' }}>
+            {editingPassword ? (
+              <input
+                type="text"
+                autoFocus
+                placeholder="New password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') setEditingPassword(false); }}
+                style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 14, padding: '7px 0', outline: 'none', fontFamily: 'inherit' }}
+              />
+            ) : (
+              <span style={{ flex: 1, fontSize: 14, color: 'var(--text)', letterSpacing: '.15em' }}>••••••••••••</span>
+            )}
+            <button
+              onClick={() => { if (!editingPassword) setPassword(''); setEditingPassword(v => !v); }}
+              style={changeLink}
+            >
+              {editingPassword ? 'Done' : 'Change ›'}
+            </button>
           </div>
         </div>
 

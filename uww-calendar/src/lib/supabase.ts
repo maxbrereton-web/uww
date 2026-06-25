@@ -7,6 +7,11 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://spblobwslyext
 const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Voy_QlgpoyrTy92m9RwaNg_HuKKG8PB';
 
+// Captured BEFORE the client below consumes & clears the URL hash: true when the
+// page was opened from a Supabase invite / password-set email link.
+export const INVITE_FLOW =
+  typeof window !== 'undefined' && /[#&?]type=(invite|recovery|signup)/.test(window.location.hash + window.location.search);
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: true,

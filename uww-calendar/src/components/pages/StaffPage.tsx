@@ -138,22 +138,42 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState('');
   const [type, setType] = useState<StaffType>('Staff');
   const [skills, setSkills] = useState<string[]>([]);
+  const [status, setStatus] = useState<'idle' | 'sending' | 'error'>('idle');
+  const [errMsg, setErrMsg] = useState('');
 
   const toggleSkill = (s: string) =>
     setSkills(skills.includes(s) ? skills.filter(x => x !== s) : [...skills, s]);
 
-  const create = () => {
+  const create = async () => {
+    if (status === 'sending') return;
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    const em = email.trim();
+    // Add them to the shared directory straight away.
     addStaff({
-      id: 'st' + Date.now(),
-      name: fullName || 'New Staff',
-      admin: false,
-      location: '',
-      email: email.trim(),
-      type,
-      skillsets: skills,
-      country: '',
+      id: 'st' + Date.now(), name: fullName || 'New Staff', admin: false,
+      location: '', email: em, type, skillsets: skills, country: '',
     });
+    // Send the real invite email (server-side).
+    if (em) {
+      setStatus('sending');
+      setErrMsg('');
+      try {
+        const r = await fetch('/api/invite', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: em, name: fullName }),
+        });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          setErrMsg(j.error || 'Added to the directory, but the invite email could not be sent.');
+          setStatus('error');
+          return;
+        }
+      } catch {
+        setErrMsg('Added to the directory, but the invite service could not be reached.');
+        setStatus('error');
+        return;
+      }
+    }
     onClose();
   };
 
@@ -235,18 +255,22 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
+        {status === 'error' && (
+          <div style={{ fontSize: 12.5, color: '#E0A100', marginBottom: 12, lineHeight: 1.4 }}>{errMsg}</div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button
             onClick={onClose}
             style={{ ...condensed, fontSize: 12, padding: '9px 16px', cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--control)', color: 'var(--text)' }}
           >
-            Cancel
+            {status === 'error' ? 'Close' : 'Cancel'}
           </button>
           <button
             onClick={create}
-            style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: 'pointer' }}
+            disabled={status === 'sending'}
+            style={{ ...condensed, fontSize: 12, padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', cursor: status === 'sending' ? 'default' : 'pointer', opacity: status === 'sending' ? 0.7 : 1 }}
           >
-            Send Invite
+            {status === 'sending' ? 'Sending…' : 'Send Invite'}
           </button>
         </div>
       </div>

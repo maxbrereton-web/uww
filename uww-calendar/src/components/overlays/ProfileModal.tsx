@@ -59,9 +59,21 @@ export default function ProfileModal() {
   const logout = useStore(s => s.logout);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const setAuthPassword = useStore(s => s.setAuthPassword);
   const [editingEmail, setEditingEmail] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
   const [password, setPassword] = useState('••••••••••••');
+  const [pwMsg, setPwMsg] = useState('');
+
+  const savePassword = async () => {
+    if (!editingPassword) { setPassword(''); setPwMsg(''); setEditingPassword(true); return; }
+    const pw = password.trim();
+    if (pw) {
+      const res = await setAuthPassword(pw);
+      setPwMsg(res.ok ? 'Password updated.' : (res.error || 'Could not update password.'));
+    }
+    setEditingPassword(false);
+  };
 
   if (!member) return null;
 
@@ -189,19 +201,20 @@ export default function ProfileModal() {
                 placeholder="New password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') setEditingPassword(false); }}
+                onKeyDown={e => { if (e.key === 'Enter') savePassword(); }}
                 style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 14, padding: '7px 0', outline: 'none', fontFamily: 'inherit' }}
               />
             ) : (
               <span style={{ flex: 1, fontSize: 14, color: 'var(--text)', letterSpacing: '.15em' }}>••••••••••••</span>
             )}
             <button
-              onClick={() => { if (!editingPassword) setPassword(''); setEditingPassword(v => !v); }}
+              onClick={savePassword}
               style={changeLink}
             >
               {editingPassword ? 'Done' : 'Change ›'}
             </button>
           </div>
+          {pwMsg && <div style={{ fontSize: 11.5, color: pwMsg.includes('updated') ? '#22C55E' : '#E0A100', marginTop: -2 }}>{pwMsg}</div>}
         </div>
 
         {/* Role/theme/logout (mobile only — desktop has these in the sidebar) */}

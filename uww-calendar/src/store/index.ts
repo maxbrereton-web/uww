@@ -193,6 +193,7 @@ export interface StoreState {
   // Actions
   login: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string; needsSetup?: string }>;
   restoreSession: () => Promise<void>;
+  setAuthPassword: (password: string) => Promise<{ ok: boolean; error?: string }>;
   initChat: () => Promise<void>;
   initData: () => Promise<void>;
   completeInvite: (userId: string, data: { name: string; username: string; password: string; photo?: string }) => void;
@@ -347,22 +348,35 @@ export const useStore = create<StoreState>((set, get) => {
 
   // Map an authenticated Supabase user onto the app's identity (super-admin,
   // an existing staff member matched by email, or a fresh stub for a new user).
-  const applyAuthedUser = (uid: string, email: string) => {
+  const applyAuthedUser = async (uid: string, email: string) => {
     const emailL = email.trim().toLowerCase();
     if (emailL === SUPER_ADMIN_EMAIL) {
+      if (get().isSuperAdmin) return; // already signed in — don't disrupt navigation
       commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
       return;
     }
-    const local = get().staff.find(m => m.email.trim().toLowerCase() === emailL);
-    if (local) {
-      commit(() => ({ authedUserId: local.id, isSuperAdmin: false, role: roleForMember(local), page: 'calendar', selectedEventId: null }));
+    let member = get().staff.find(m => m.email.trim().toLowerCase() === emailL);
+    if (!member) {
+      // Not in this device's directory yet (e.g. an invited user on a fresh device) → look it up.
+      try {
+        const { data } = await supabase.from('staff_members').select('*');
+        const row = (data as StaffRow[] | null)?.find(r => (r.data?.email || '').trim().toLowerCase() === emailL);
+        if (row) { applyStaffRow('UPDATE', row); member = { ...row.data }; }
+      } catch { /* ignore */ }
+    }
+    if (member) {
+      const m = member;
+      if (get().authedUserId === m.id && !get().isSuperAdmin) return;
+      commit(() => ({ authedUserId: m.id, isSuperAdmin: false, role: roleForMember(m), page: 'calendar', selectedEventId: null }));
       return;
     }
+    if (get().authedUserId === uid) return;
     const stub: StaffMember = { id: uid, name: email.split('@')[0] || 'New User', admin: false, location: '', email, type: 'Staff', skillsets: [], country: '', password: 'set' };
     commit(st => ({
       staff: st.staff.some(m => m.id === uid) ? st.staff : [...st.staff, stub],
       authedUserId: uid, isSuperAdmin: false, role: 'staff', page: 'calendar', selectedEventId: null,
     }));
+    syncStaff(uid);
   };
 
   // Merge a chat row arriving from Supabase (history or realtime) into local state,
@@ -591,7 +605,7 @@ export const useStore = create<StoreState>((set, get) => {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (!error && data.user) {
-          applyAuthedUser(data.user.id, data.user.email || email);
+          await applyAuthedUser(data.user.id, data.user.email || email);
           return { ok: true };
         }
       } catch { /* network/unconfigured — fall back to local accounts */ }
@@ -602,8 +616,23 @@ export const useStore = create<StoreState>((set, get) => {
       try {
         const { data } = await supabase.auth.getSession();
         const u = data.session?.user;
-        if (u) applyAuthedUser(u.id, u.email || '');
+        if (u) await applyAuthedUser(u.id, u.email || '');
       } catch { /* ignore */ }
+      // Catch the session that an invite/email link establishes asynchronously.
+      try {
+        supabase.auth.onAuthStateChange((_e, session) => {
+          if (session?.user) applyAuthedUser(session.user.id, session.user.email || '');
+        });
+      } catch { /* ignore */ }
+    },
+    setAuthPassword: async (password) => {
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) return { ok: false, error: error.message };
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Could not reach the server.' };
+      }
     },
     initChat: async () => {
       if (chatInited) return;

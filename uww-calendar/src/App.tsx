@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, currentUser, effectiveView } from './store';
+import { INVITE_FLOW } from './lib/supabase';
 import LoginScreen from './components/auth/LoginScreen';
+import WelcomeSetup from './components/auth/WelcomeSetup';
 import Avatar from './components/common/Avatar';
 import Sidebar from './components/layout/Sidebar';
 import MobileTabBar from './components/layout/MobileTabBar';
@@ -32,6 +34,7 @@ export default function App() {
   const restoreSession = useStore(s => s.restoreSession);
   const initChat = useStore(s => s.initChat);
   const initData = useStore(s => s.initData);
+  const [inviteWelcome, setInviteWelcome] = useState(INVITE_FLOW);
   const cu = useStore(currentUser);
   const openProfile = useStore(s => s.openProfile);
   const page = useStore(s => s.page);
@@ -68,6 +71,9 @@ export default function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [setIsNarrow]);
+
+  // Opened from an invite/password email link → let them set a password + finish profile.
+  if (inviteWelcome && authedUserId) return <WelcomeSetup onDone={() => setInviteWelcome(false)} />;
 
   // Not signed in → show the login / account-setup screen instead of the app.
   if (!authedUserId) return <LoginScreen />;

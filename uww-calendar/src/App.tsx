@@ -35,15 +35,17 @@ export default function App() {
   const restoreSession = useStore(s => s.restoreSession);
   const initChat = useStore(s => s.initChat);
   const initData = useStore(s => s.initData);
+  const cu = useStore(currentUser);
+  const openProfile = useStore(s => s.openProfile);
   const [inviteWelcome, setInviteWelcome] = useState(() => {
     try { return INVITE_FLOW && sessionStorage.getItem('uww_invite_done') !== '1'; } catch { return INVITE_FLOW; }
   });
   const finishInvite = () => {
     try { sessionStorage.setItem('uww_invite_done', '1'); } catch { /* ignore */ }
     setInviteWelcome(false);
+    // First thing a new user sees: their profile, with the Watch Tutorial button.
+    openProfile();
   };
-  const cu = useStore(currentUser);
-  const openProfile = useStore(s => s.openProfile);
   const page = useStore(s => s.page);
   const calView = useStore(s => s.calView);
   const selectedEventId = useStore(s => s.selectedEventId);

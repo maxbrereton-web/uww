@@ -34,7 +34,13 @@ export default function App() {
   const restoreSession = useStore(s => s.restoreSession);
   const initChat = useStore(s => s.initChat);
   const initData = useStore(s => s.initData);
-  const [inviteWelcome, setInviteWelcome] = useState(INVITE_FLOW);
+  const [inviteWelcome, setInviteWelcome] = useState(() => {
+    try { return INVITE_FLOW && sessionStorage.getItem('uww_invite_done') !== '1'; } catch { return INVITE_FLOW; }
+  });
+  const finishInvite = () => {
+    try { sessionStorage.setItem('uww_invite_done', '1'); } catch { /* ignore */ }
+    setInviteWelcome(false);
+  };
   const cu = useStore(currentUser);
   const openProfile = useStore(s => s.openProfile);
   const page = useStore(s => s.page);
@@ -59,6 +65,14 @@ export default function App() {
     restoreSession();
   }, [restoreSession]);
 
+  // Strip the invite/recovery token from the URL so a later refresh doesn't re-trigger
+  // the welcome screen.
+  useEffect(() => {
+    if (INVITE_FLOW) {
+      try { window.history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
+    }
+  }, []);
+
   // Once signed in, sync chat + events from Supabase and listen for live updates.
   useEffect(() => {
     if (authedUserId) { initChat(); initData(); }
@@ -73,7 +87,7 @@ export default function App() {
   }, [setIsNarrow]);
 
   // Opened from an invite/password email link → let them set a password + finish profile.
-  if (inviteWelcome && authedUserId) return <WelcomeSetup onDone={() => setInviteWelcome(false)} />;
+  if (inviteWelcome && authedUserId) return <WelcomeSetup onDone={finishInvite} />;
 
   // Not signed in → show the login / account-setup screen instead of the app.
   if (!authedUserId) return <LoginScreen />;

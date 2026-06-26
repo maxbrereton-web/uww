@@ -73,6 +73,7 @@ function makeMentionNotifs(
 
 interface PersistShape {
   theme: 'dark' | 'light';
+  role: Role;
   events: UWWEvent[];
   archivedEvents: UWWEvent[];
   staff: StaffMember[];
@@ -104,6 +105,7 @@ function scheduleSave(get: () => StoreState) {
     const s = get();
     const data: PersistShape = {
       theme: s.theme,
+      role: s.role,
       events: s.events,
       archivedEvents: s.archivedEvents,
       staff: s.staff,
@@ -350,9 +352,11 @@ export const useStore = create<StoreState>((set, get) => {
   // an existing staff member matched by email, or a fresh stub for a new user).
   const applyAuthedUser = async (uid: string, email: string) => {
     const emailL = email.trim().toLowerCase();
+    // `nav` only resets the page/selection when the signed-in identity actually changes,
+    // so a token refresh or page reload re-affirms the role WITHOUT yanking navigation.
     if (emailL === SUPER_ADMIN_EMAIL) {
-      if (get().isSuperAdmin) return; // already signed in — don't disrupt navigation
-      commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', page: 'calendar', selectedEventId: null }));
+      const nav = get().authedUserId !== '__super__' ? { page: 'calendar' as Page, selectedEventId: null } : {};
+      commit(() => ({ authedUserId: '__super__', isSuperAdmin: true, role: 'admin', ...nav }));
       return;
     }
     let member = get().staff.find(m => m.email.trim().toLowerCase() === emailL);
@@ -366,15 +370,15 @@ export const useStore = create<StoreState>((set, get) => {
     }
     if (member) {
       const m = member;
-      if (get().authedUserId === m.id && !get().isSuperAdmin) return;
-      commit(() => ({ authedUserId: m.id, isSuperAdmin: false, role: roleForMember(m), page: 'calendar', selectedEventId: null }));
+      const nav = (get().authedUserId !== m.id || get().isSuperAdmin) ? { page: 'calendar' as Page, selectedEventId: null } : {};
+      commit(() => ({ authedUserId: m.id, isSuperAdmin: false, role: roleForMember(m), ...nav }));
       return;
     }
-    if (get().authedUserId === uid) return;
+    const nav = (get().authedUserId !== uid || get().isSuperAdmin) ? { page: 'calendar' as Page, selectedEventId: null } : {};
     const stub: StaffMember = { id: uid, name: email.split('@')[0] || 'New User', admin: false, location: '', email, type: 'Staff', skillsets: [], country: '', password: 'set' };
     commit(st => ({
       staff: st.staff.some(m => m.id === uid) ? st.staff : [...st.staff, stub],
-      authedUserId: uid, isSuperAdmin: false, role: 'staff', page: 'calendar', selectedEventId: null,
+      authedUserId: uid, isSuperAdmin: false, role: 'staff', ...nav,
     }));
     syncStaff(uid);
   };
@@ -533,7 +537,7 @@ export const useStore = create<StoreState>((set, get) => {
     theme: persisted.theme || 'dark',
     viewMode: 'web',
     isNarrow: typeof window !== 'undefined' && window.innerWidth < 760,
-    role: 'admin',
+    role: persisted.role || 'admin',
     page: 'calendar',
     calView: 'calendar',
     year: 2026,

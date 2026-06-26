@@ -84,8 +84,6 @@ interface PersistShape {
   templates: Templates;
   usernames: Record<string, string>;
   instagram: Record<string, string>;
-  authedUserId: string | null;
-  isSuperAdmin: boolean;
 }
 
 function loadPersisted(): Partial<PersistShape> {
@@ -116,8 +114,6 @@ function scheduleSave(get: () => StoreState) {
       templates: s.templates,
       usernames: s.usernames,
       instagram: s.instagram,
-      authedUserId: s.authedUserId,
-      isSuperAdmin: s.isSuperAdmin,
     };
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -131,6 +127,7 @@ export interface StoreState {
   // Auth
   authedUserId: string | null;   // staff id of the logged-in user; null = show login
   isSuperAdmin: boolean;         // true only for the 'admin' test account (gets dev toggles)
+  authChecked: boolean;          // false until we've checked for a live Supabase session
 
   // UI state
   theme: 'dark' | 'light';
@@ -565,8 +562,9 @@ export const useStore = create<StoreState>((set, get) => {
   };
 
   return {
-    authedUserId: persisted.authedUserId ?? null,
-    isSuperAdmin: persisted.isSuperAdmin ?? false,
+    authedUserId: null,
+    isSuperAdmin: false,
+    authChecked: false,
 
     theme: persisted.theme || 'dark',
     viewMode: 'web',
@@ -657,6 +655,7 @@ export const useStore = create<StoreState>((set, get) => {
         const u = data.session?.user;
         if (u) await applyAuthedUser(u.id, u.email || '');
       } catch { /* ignore */ }
+      set({ authChecked: true });
       // Catch the session that an invite/email link establishes asynchronously.
       try {
         supabase.auth.onAuthStateChange((_e, session) => {
@@ -675,6 +674,10 @@ export const useStore = create<StoreState>((set, get) => {
     },
     initChat: async () => {
       if (chatInited) return;
+      // Only ever sync with a real Supabase session — an unauthenticated read returns
+      // an empty set (RLS), which must NOT be mistaken for "the cloud is empty".
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return;
       chatInited = true;
       // Pull existing history into local state (de-duped by id).
       try {
@@ -693,6 +696,11 @@ export const useStore = create<StoreState>((set, get) => {
     },
     initData: async () => {
       if (dataInited) return;
+      // Critical: only sync/seed with a real Supabase session. Reading as an
+      // unauthenticated user returns 0 rows (RLS), and the old code treated that as
+      // "cloud empty" and re-seeded stale local data — clobbering everyone's changes.
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return;
       dataInited = true;
       try {
         const { data, error } = await supabase.from('events').select('*');

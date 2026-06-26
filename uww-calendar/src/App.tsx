@@ -28,6 +28,7 @@ import DmOverlay from './components/overlays/DmOverlay';
 export default function App() {
   const theme = useStore(s => s.theme);
   const authedUserId = useStore(s => s.authedUserId);
+  const authChecked = useStore(s => s.authChecked);
   const viewMode = useStore(s => s.viewMode);
   const isNarrow = useStore(s => s.isNarrow);
   const view = useStore(effectiveView);
@@ -89,6 +90,16 @@ export default function App() {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [setIsNarrow]);
+
+  // Wait until we know whether there's a live Supabase session before showing anything,
+  // so we never render stale data or briefly flash the login screen.
+  if (!authChecked) {
+    return (
+      <div data-app-theme={theme} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+        <img src="/assets/uww-emblem.svg" alt="UWW" style={{ height: 52, width: 'auto', opacity: 0.85, animation: 'uwwPulse 1.2s ease-in-out infinite' }} />
+      </div>
+    );
+  }
 
   // Opened from an invite/password email link → let them set a password + finish profile.
   if (inviteWelcome && authedUserId) return <WelcomeSetup onDone={finishInvite} />;

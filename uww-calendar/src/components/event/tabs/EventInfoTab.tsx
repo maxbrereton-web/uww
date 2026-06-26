@@ -47,6 +47,7 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [adminAddOpen, setAdminAddOpen] = useState(false);
+  const [datesOpen, setDatesOpen] = useState(false);
 
   if (!ev) return null;
 
@@ -155,18 +156,11 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
               </select>
             )}
             {admin && c.editor === 'dates' && (
-              <>
-                <input
-                  type="date" value={ev.start} title="Start date"
-                  onChange={e => updateEvent(eventId, { start: e.target.value })}
-                  style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', opacity: 0, cursor: 'pointer' }}
-                />
-                <input
-                  type="date" value={ev.end} title="End date"
-                  onChange={e => updateEvent(eventId, { end: e.target.value })}
-                  style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%', opacity: 0, cursor: 'pointer' }}
-                />
-              </>
+              <div
+                onClick={() => setDatesOpen(true)}
+                title="Edit dates"
+                style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}
+              />
             )}
           </div>
         ))}
@@ -308,9 +302,57 @@ export default function EventInfoTab({ eventId }: { eventId: string }) {
           )}
         </div>
       </div>
+
+      {/* Dates editor — clear, labelled Start/End that can't end before it starts */}
+      {datesOpen && admin && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setDatesOpen(false)}
+        >
+          <div
+            className="uww-overlay"
+            style={{ width: 340, maxWidth: '100%', background: 'var(--panel)', border: '1px solid var(--border-strong)', borderRadius: 16, boxShadow: 'var(--shadow)', padding: 24 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ ...condensed, fontSize: 16, marginBottom: 18 }}>Event Dates</div>
+            <label style={dateLabel}>Start date</label>
+            <input
+              type="date"
+              value={ev.start}
+              max={ev.end || undefined}
+              onChange={e => { const v = e.target.value; if (v) updateEvent(eventId, { start: v, ...(v > ev.end ? { end: v } : {}) }); }}
+              style={dateInputStyle}
+            />
+            <label style={{ ...dateLabel, marginTop: 14 }}>End date</label>
+            <input
+              type="date"
+              value={ev.end}
+              min={ev.start || undefined}
+              onChange={e => { const v = e.target.value; if (v) updateEvent(eventId, { end: v, ...(v < ev.start ? { start: v } : {}) }); }}
+              style={dateInputStyle}
+            />
+            <button
+              onClick={() => setDatesOpen(false)}
+              style={{ ...condensed, fontSize: 13, width: '100%', padding: '14px', marginTop: 22, cursor: 'pointer', borderRadius: 11, border: 'none', background: 'var(--accent-deep)', color: '#fff' }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const dateLabel: React.CSSProperties = {
+  fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em',
+  fontWeight: 700, display: 'block', marginBottom: 7,
+};
+
+const dateInputStyle: React.CSSProperties = {
+  width: '100%', padding: '12px 13px', background: 'var(--field)', color: 'var(--text)',
+  border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 15, outline: 'none', fontFamily: 'inherit',
+};
 
 const menuItemStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',

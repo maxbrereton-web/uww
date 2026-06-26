@@ -112,6 +112,7 @@ export default function CalendarGrid() {
 
   const events = useVisibleEvents();
   const fullState = useStore(s => s);
+  const staffIdSet = new Set(fullState.staff.map(m => m.id));
 
   const prevMonth = useStore(s => s.prevMonth);
   const nextMonth = useStore(s => s.nextMonth);
@@ -347,7 +348,9 @@ export default function CalendarGrid() {
                     ? d.members.filter(m => m.status === 'confirmed').map(m => m.id)
                     : ev.staff;
                   const nCount = notifCount(ev.id);
-                  const avatars = roundL ? ev.staff.slice(0, 4) : [];
+                  // Only show people who are confirmed on the event AND still exist in the
+                  // directory — so anyone removed from the event or deleted disappears.
+                  const avatars = roundL ? confirmedIds.filter(id => staffIdSet.has(id)).slice(0, 4) : [];
 
                   return (
                     <div

@@ -34,6 +34,7 @@ export default function TableView() {
   const admin = useStore(isAdmin);
   const events = useVisibleEvents();
   const fullState = useStore(s => s);
+  const staffIdSet = new Set(fullState.staff.map(m => m.id));
 
   const setCalView = useStore(s => s.setCalView);
   const setSearch = useStore(s => s.setSearch);
@@ -162,7 +163,7 @@ export default function TableView() {
             <tbody>
               {rows.map(ev => {
                 const d = detail[ev.id];
-                const confirmed = d ? d.members.filter(m => m.status === 'confirmed').map(m => m.id) : ev.staff;
+                const confirmed = (d ? d.members.filter(m => m.status === 'confirmed').map(m => m.id) : ev.staff).filter(id => staffIdSet.has(id));
                 const completion = completionFor(ev.id, detail, events);
                 const nCount = eventNotifCount(ev.id, fullState);
 

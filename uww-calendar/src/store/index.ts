@@ -74,6 +74,8 @@ function makeMentionNotifs(
 interface PersistShape {
   theme: 'dark' | 'light';
   role: Role;
+  year: number;
+  month: number;
   events: UWWEvent[];
   archivedEvents: UWWEvent[];
   staff: StaffMember[];
@@ -104,6 +106,8 @@ function scheduleSave(get: () => StoreState) {
     const data: PersistShape = {
       theme: s.theme,
       role: s.role,
+      year: s.year,
+      month: s.month,
       events: s.events,
       archivedEvents: s.archivedEvents,
       staff: s.staff,
@@ -572,8 +576,8 @@ export const useStore = create<StoreState>((set, get) => {
     role: persisted.role || 'admin',
     page: 'calendar',
     calView: 'calendar',
-    year: new Date().getFullYear(),
-    month: new Date().getMonth(),
+    year: persisted.year ?? new Date().getFullYear(),
+    month: persisted.month ?? new Date().getMonth(),
     selectedEventId: null,
     eventTab: 'info',
     showNotifications: false,
@@ -856,12 +860,12 @@ export const useStore = create<StoreState>((set, get) => {
     setViewMode: (m) => set({ viewMode: m }),
     setIsNarrow: (b) => set({ isNarrow: b }),
     setRole: (r) => set({ role: r, selectedEventId: null, page: 'calendar', showNotifications: false }),
+    // Returning to the calendar keeps whatever month you were last viewing
+    // (persisted in localStorage), rather than resetting to the current month.
     setPage: (p) => set({
       page: p,
       selectedEventId: null,
       showNotifications: false,
-      // Opening the calendar always lands on the current month.
-      ...(p === 'calendar' ? { year: new Date().getFullYear(), month: new Date().getMonth() } : {}),
     }),
     setCalView: (v) => set({ calView: v }),
     prevMonth: () => set(s => s.month === 0 ? { month: 11, year: s.year - 1 } : { month: s.month - 1 }),

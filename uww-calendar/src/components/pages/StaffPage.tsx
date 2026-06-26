@@ -281,7 +281,16 @@ function NewStaffModal({ onClose }: { onClose: () => void }) {
 function MobileCard({ member }: { member: StaffMember }) {
   const updateStaff = useStore(s => s.updateStaff);
   const removeStaff = useStore(s => s.removeStaff);
+  const requestConfirm = useStore(s => s.requestConfirm);
   const [open, setOpen] = useState(false);
+
+  const confirmRemove = () => requestConfirm({
+    title: 'Delete staff member',
+    message: `Delete ${member.name}? Their account and access are removed for everyone. This can’t be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: () => removeStaff(member.id),
+  });
 
   return (
     <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -321,7 +330,7 @@ function MobileCard({ member }: { member: StaffMember }) {
             <SkillTags member={member} />
           </div>
           <button
-            onClick={() => removeStaff(member.id)}
+            onClick={confirmRemove}
             style={{ ...condensed, fontSize: 11, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--control)', color: '#EF4444', cursor: 'pointer', alignSelf: 'flex-start' }}
           >
             Remove
@@ -338,8 +347,17 @@ export default function StaffPage() {
   const staff = useStore(s => s.staff);
   const updateStaff = useStore(s => s.updateStaff);
   const removeStaff = useStore(s => s.removeStaff);
+  const requestConfirm = useStore(s => s.requestConfirm);
   const openDmWith = useStore(s => s.openDmWith);
   const [showModal, setShowModal] = useState(false);
+
+  const confirmRemove = (m: StaffMember) => requestConfirm({
+    title: 'Delete staff member',
+    message: `Delete ${m.name}? Their account and access are removed for everyone. This can’t be undone.`,
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: () => removeStaff(m.id),
+  });
 
   if (role !== 'admin') {
     return (
@@ -390,7 +408,7 @@ export default function StaffPage() {
               {staff.map(m => (
                 <tr
                   key={m.id}
-                  onContextMenu={e => { e.preventDefault(); removeStaff(m.id); }}
+                  onContextMenu={e => { e.preventDefault(); confirmRemove(m); }}
                 >
                   <td style={bodyCell}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -431,7 +449,7 @@ export default function StaffPage() {
                   </td>
                   <td style={bodyCell}>
                     <button
-                      onClick={() => removeStaff(m.id)}
+                      onClick={() => confirmRemove(m)}
                       aria-label="Remove staff"
                       style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
                     >

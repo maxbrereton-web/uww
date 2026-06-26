@@ -154,6 +154,14 @@ export interface ContextMenuData {
   date?: string;
 }
 
+export interface ConfirmRequest {
+  title?: string;
+  message: string;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+}
+
 export interface NewEventForm {
   name: string;
   priority: Priority;

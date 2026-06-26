@@ -12,6 +12,8 @@ export default function ContextMenu() {
   const archiveEvent = useStore(s => s.archiveEvent);
   const removeEvent = useStore(s => s.removeEvent);
   const requestJoin = useStore(s => s.requestJoin);
+  const requestConfirm = useStore(s => s.requestConfirm);
+  const events = useStore(s => s.events);
   const close = useStore(s => s.closeContextMenu);
 
   if (!menu) return null;
@@ -22,7 +24,19 @@ export default function ContextMenu() {
     items.push({ label: 'Start event from here', onClick: () => { openNewEvent(menu.date); close(); } });
   } else if (menu.type === 'event' && isAdminUser) {
     items.push({ label: 'Archive event', onClick: () => { if (menu.eventId) archiveEvent(menu.eventId); close(); } });
-    items.push({ label: 'Delete event', danger: true, onClick: () => { if (menu.eventId) removeEvent(menu.eventId); close(); } });
+    items.push({ label: 'Delete event', danger: true, onClick: () => {
+      const id = menu.eventId;
+      close();
+      if (!id) return;
+      const name = events.find(e => e.id === id)?.name || 'this event';
+      requestConfirm({
+        title: 'Delete event',
+        message: `Delete “${name}”? This permanently removes the event and everything in it for everyone. This can’t be undone.`,
+        confirmLabel: 'Delete',
+        danger: true,
+        onConfirm: () => removeEvent(id),
+      });
+    } });
   } else if (menu.type === 'event' && !isAdminUser) {
     items.push({ label: 'Request to join event', onClick: () => { if (menu.eventId) requestJoin(menu.eventId); close(); } });
   }

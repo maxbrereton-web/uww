@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { useMemo } from 'react';
 import type {
-  Role, Page, CalView, NotifTab, ContextMenuData, SortKey, UWWEvent, StaffMember,
+  Role, Page, CalView, NotifTab, ContextMenuData, ConfirmRequest, SortKey, UWWEvent, StaffMember,
   EventDetail, Notification, Message, Group, Templates, NewEventForm, Priority,
   InfoItem, Availability, EventTemplate, DocTemplate, MemberStatus,
 } from '../types';
@@ -151,6 +151,7 @@ export interface StoreState {
   showProfile: boolean;
   showTutorial: boolean;
   contextMenu: ContextMenuData | null;
+  confirm: ConfirmRequest | null;
   sortKey: SortKey;
   sortDir: 'asc' | 'desc';
   sortMenuOpen: boolean;
@@ -226,6 +227,8 @@ export interface StoreState {
   nextTutorialStep: () => void;
   setContextMenu: (data: ContextMenuData | null) => void;
   closeContextMenu: () => void;
+  requestConfirm: (req: ConfirmRequest) => void;
+  closeConfirm: () => void;
   setSort: (key: SortKey) => void;
   toggleSortMenu: () => void;
   closeSortMenu: () => void;
@@ -583,6 +586,7 @@ export const useStore = create<StoreState>((set, get) => {
     showProfile: false,
     showTutorial: false,
     contextMenu: null,
+    confirm: null,
     sortKey: 'date',
     sortDir: 'asc',
     sortMenuOpen: false,
@@ -897,6 +901,8 @@ export const useStore = create<StoreState>((set, get) => {
 
     setContextMenu: (data) => set({ contextMenu: data }),
     closeContextMenu: () => set({ contextMenu: null }),
+    requestConfirm: (req) => set({ confirm: req }),
+    closeConfirm: () => set({ confirm: null }),
     setSort: (key) => set(s => ({
       sortKey: key,
       sortDir: s.sortKey === key && s.sortDir === 'asc' ? 'desc' : 'asc',

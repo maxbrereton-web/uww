@@ -21,6 +21,7 @@ import DocEditor from './components/overlays/DocEditor';
 import LinkSetup from './components/overlays/LinkSetup';
 import ProfileModal from './components/overlays/ProfileModal';
 import ContextMenu from './components/overlays/ContextMenu';
+import ConfirmDialog from './components/overlays/ConfirmDialog';
 import TutorialOverlay from './components/overlays/TutorialOverlay';
 import DmOverlay from './components/overlays/DmOverlay';
 
@@ -135,6 +136,7 @@ export default function App() {
       {linkSetupOpen && <LinkSetup />}
       {contextMenu && <ContextMenu />}
       {dmOverlay && <DmOverlay />}
+      <ConfirmDialog />
 
       {/* Mobile-only floating profile button */}
       <button

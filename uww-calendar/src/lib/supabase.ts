@@ -19,3 +19,21 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: true,
   },
 });
+
+/**
+ * Upload a chat attachment to Supabase Storage and return a small public URL.
+ * (Storing files as base64 in the message blew past Realtime's payload limit,
+ * which made attachments arrive blank on the other device.)
+ */
+export async function uploadAttachment(file: File): Promise<{ name: string; url: string } | null> {
+  try {
+    const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2)}_${safe}`;
+    const { error } = await supabase.storage.from('chat-attachments').upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) return null;
+    const { data } = supabase.storage.from('chat-attachments').getPublicUrl(path);
+    return { name: file.name, url: data.publicUrl };
+  } catch {
+    return null;
+  }
+}

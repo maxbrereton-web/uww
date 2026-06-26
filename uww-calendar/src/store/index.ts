@@ -694,7 +694,26 @@ export const useStore = create<StoreState>((set, get) => {
             const seed = local.staff.map(m => ({ id: m.id, data: stripPw(m), username: local.usernames[m.id] ?? null, instagram: local.instagram[m.id] ?? null }));
             if (seed.length) await supabase.from('staff_members').upsert(seed).then(undefined, () => {});
           } else {
-            (rows as StaffRow[]).forEach(r => applyStaffRow('UPDATE', r));
+            // Authoritative load: the cloud directory is the truth, so people removed
+            // elsewhere disappear here too (instead of lingering from old local data).
+            const cloud = rows as StaffRow[];
+            commit(s => {
+              const staff: StaffMember[] = cloud.map(r => ({ ...r.data, password: s.staff.find(m => m.id === r.id)?.password }));
+              const usernames: Record<string, string> = {};
+              const instagram: Record<string, string> = {};
+              cloud.forEach(r => { if (r.username) usernames[r.id] = r.username; if (r.instagram) instagram[r.id] = r.instagram; });
+              // Keep the signed-in user even if their directory row hasn't synced yet.
+              const cu = s.authedUserId;
+              if (cu && cu !== '__super__' && !staff.some(m => m.id === cu)) {
+                const me = s.staff.find(m => m.id === cu);
+                if (me) {
+                  staff.push(me);
+                  if (s.usernames[cu]) usernames[cu] = s.usernames[cu];
+                  if (s.instagram[cu]) instagram[cu] = s.instagram[cu];
+                }
+              }
+              return { staff, usernames, instagram };
+            });
           }
         }
       } catch { /* ignore */ }

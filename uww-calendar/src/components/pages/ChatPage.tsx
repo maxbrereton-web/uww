@@ -2,6 +2,7 @@ import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Users, X, ArrowLeft, Paperclip, Camera } from 'lucide-react';
 import { useStore, currentUser, effectiveView } from '../../store';
+import { uploadAttachment } from '../../lib/supabase';
 import type { Message } from '../../types';
 import Avatar from '../common/Avatar';
 import AttachmentCard from '../common/AttachmentCard';
@@ -236,34 +237,46 @@ function EditGroupModal() {
 
 type Att = { name: string; url: string };
 
+function fileToDataAtt(file: File): Promise<Att> {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res({ name: file.name, url: r.result as string });
+    r.readAsDataURL(file);
+  });
+}
+
 function Composer({ onSend }: { onSend: (text: string, att?: Att) => void }) {
   const [text, setText] = useState('');
-  const [att, setAtt] = useState<Att | null>(null);
+  const [pending, setPending] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const send = () => {
+  const send = async () => {
     const v = text.trim();
-    if (!v && !att) return;
-    onSend(v, att || undefined);
+    if ((!v && !pending) || sending) return;
+    let att: Att | undefined;
+    if (pending) {
+      setSending(true);
+      att = (await uploadAttachment(pending)) || (await fileToDataAtt(pending));
+      setSending(false);
+    }
+    onSend(v, att);
     setText('');
-    setAtt(null);
+    setPending(null);
   };
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAtt({ name: file.name, url: reader.result as string });
-    reader.readAsDataURL(file);
+    if (file) setPending(file);
     e.target.value = '';
   };
 
   return (
     <div style={{ padding: 14, borderTop: '1px solid var(--border)' }}>
-      {att && (
+      {pending && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9, padding: '7px 11px', background: 'var(--field)', border: '1px solid var(--border-strong)', borderRadius: 9 }}>
           <Paperclip size={14} color="var(--accent)" />
-          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</span>
-          <X size={15} style={{ cursor: 'pointer', color: 'var(--text-muted)', flex: '0 0 auto' }} onClick={() => setAtt(null)} />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pending.name}</span>
+          <X size={15} style={{ cursor: 'pointer', color: 'var(--text-muted)', flex: '0 0 auto' }} onClick={() => setPending(null)} />
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -275,11 +288,11 @@ function Composer({ onSend }: { onSend: (text: string, att?: Att) => void }) {
           style={{ width: '100%', padding: '12px 14px', background: 'var(--field)', color: 'var(--text)', border: '1px solid var(--border-strong)', borderRadius: 9, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }}
         />
         <input ref={fileRef} type="file" onChange={onFile} style={{ display: 'none' }} />
-        <button type="button" title="Attach a file" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 9, background: att ? 'color-mix(in srgb, var(--accent-deep) 20%, var(--field))' : 'var(--field)', border: '1px solid ' + (att ? 'var(--accent-deep)' : 'var(--border-strong)'), color: att ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
+        <button type="button" title="Attach a file" onClick={() => fileRef.current?.click()} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 9, background: pending ? 'color-mix(in srgb, var(--accent-deep) 20%, var(--field))' : 'var(--field)', border: '1px solid ' + (pending ? 'var(--accent-deep)' : 'var(--border-strong)'), color: pending ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', flex: '0 0 auto' }}>
           <Paperclip size={17} />
         </button>
-        <button onClick={send} style={{ ...condensed, fontSize: 13, padding: '0 22px', height: 44, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: 'pointer', flex: '0 0 auto' }}>
-          Send
+        <button onClick={send} disabled={sending} style={{ ...condensed, fontSize: 13, padding: '0 22px', height: 44, borderRadius: 9, border: 'none', background: 'var(--accent-deep)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.7 : 1, flex: '0 0 auto' }}>
+          {sending ? '…' : 'Send'}
         </button>
       </div>
     </div>

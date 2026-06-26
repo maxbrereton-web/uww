@@ -73,9 +73,10 @@ export default function App() {
     }
   }, []);
 
-  // Once signed in, sync chat + events from Supabase and listen for live updates.
+  // Once signed in, sync data + chat from Supabase. Load data first (so groups exist
+  // before group messages are routed), then chat, and listen for live updates.
   useEffect(() => {
-    if (authedUserId) { initChat(); initData(); }
+    if (authedUserId) { initData().finally(() => initChat()); }
   }, [authedUserId, initChat, initData]);
 
   // Auto-detect a narrow (real phone) screen and switch to the mobile layout.

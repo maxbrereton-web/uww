@@ -514,6 +514,37 @@ export const useStore = create<StoreState>((set, get) => {
     supabase.from('templates').upsert({ id: 'main', data: get().templates, updated_at: new Date().toISOString() }).then(undefined, () => {});
   };
 
+  // ---- Group sync (the group itself: name, members, photo — messages sync separately) ----
+  const stripGroupMsgs = (g: Group): Group => ({ ...g, messages: [] });
+  const syncGroup = (id: string) => {
+    const g = get().groups.find(x => x.id === id);
+    if (!g) return;
+    supabase.from('groups').upsert({ id, data: stripGroupMsgs(g), updated_at: new Date().toISOString() }).then(undefined, () => {});
+  };
+  const syncGroupDeleted = (id: string) => {
+    supabase.from('groups').delete().eq('id', id).then(undefined, () => {});
+  };
+  const applyGroupRow = (eventType: string, row: { id: string; data: Group }) => {
+    if (eventType === 'DELETE') {
+      commit(s => ({ groups: s.groups.filter(g => g.id !== row.id), chatActive: s.chatActive === 'g:' + row.id ? null : s.chatActive }));
+      return;
+    }
+    const incoming = row.data;
+    const wasNew = !get().groups.some(g => g.id === incoming.id);
+    commit(s => {
+      const existing = s.groups.find(g => g.id === incoming.id);
+      const merged: Group = { ...incoming, messages: existing ? existing.messages : [] };
+      return { groups: existing ? s.groups.map(g => g.id === incoming.id ? merged : g) : [...s.groups, merged] };
+    });
+    // A group that just appeared → pull its message history so it isn't empty.
+    if (wasNew) {
+      supabase.from('messages').select('*').eq('channel', 'grp:' + incoming.id).then(
+        ({ data }) => (data as MsgRow[] | null)?.forEach(mergeRemoteMessage),
+        () => {},
+      );
+    }
+  };
+
   // Local credential check — the safety net if Supabase is unreachable or not set up yet.
   const localLogin = (identifier: string, password: string): { ok: boolean; error?: string; needsSetup?: string } => {
     const s = get();
@@ -737,6 +768,24 @@ export const useStore = create<StoreState>((set, get) => {
           else commit(() => ({ templates: (rows[0] as { data: Templates }).data }));
         }
       } catch { /* ignore */ }
+      // Shared chat groups (their definitions; messages sync via the messages table).
+      try {
+        const { data: rows, error } = await supabase.from('groups').select('*');
+        if (!error && rows) {
+          if (rows.length === 0) {
+            const seed = get().groups.map(g => ({ id: g.id, data: stripGroupMsgs(g) }));
+            if (seed.length) await supabase.from('groups').upsert(seed).then(undefined, () => {});
+          } else {
+            const cloud = rows as { id: string; data: Group }[];
+            commit(s => ({
+              groups: cloud.map(r => {
+                const existing = s.groups.find(g => g.id === r.id);
+                return { ...r.data, messages: existing ? existing.messages : [] };
+              }),
+            }));
+          }
+        }
+      } catch { /* ignore */ }
       // Live updates to the calendar + event contents for everyone.
       try {
         supabase
@@ -761,6 +810,10 @@ export const useStore = create<StoreState>((set, get) => {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'templates' }, payload => {
             if (payload.eventType === 'DELETE') return;
             commit(() => ({ templates: (payload.new as { data: Templates }).data }));
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'groups' }, payload => {
+            const row = (payload.eventType === 'DELETE' ? payload.old : payload.new) as { id: string; data: Group };
+            applyGroupRow(payload.eventType, row);
           })
           .subscribe();
       } catch { /* ignore */ }
@@ -1014,16 +1067,23 @@ export const useStore = create<StoreState>((set, get) => {
     createGroup: (name, members, photo) => {
       const id = 'g' + Date.now();
       commit(s => ({ groups: [...s.groups, { id, name, members, messages: [], photo }], newGroupModal: false, newGroupName: '', newGroupMembers: [] }));
+      syncGroup(id);
     },
-    editGroup: (groupId, name, members, photo) => commit(s => ({
-      groups: s.groups.map(g => g.id === groupId ? { ...g, name, members, photo: photo ?? g.photo } : g),
-      editGroupModal: false, editGroupId: null,
-    })),
-    deleteGroup: (groupId) => commit(s => ({
-      groups: s.groups.filter(g => g.id !== groupId),
-      editGroupModal: false, editGroupId: null,
-      chatActive: s.chatActive === 'g:' + groupId ? null : s.chatActive,
-    })),
+    editGroup: (groupId, name, members, photo) => {
+      commit(s => ({
+        groups: s.groups.map(g => g.id === groupId ? { ...g, name, members, photo: photo ?? g.photo } : g),
+        editGroupModal: false, editGroupId: null,
+      }));
+      syncGroup(groupId);
+    },
+    deleteGroup: (groupId) => {
+      commit(s => ({
+        groups: s.groups.filter(g => g.id !== groupId),
+        editGroupModal: false, editGroupId: null,
+        chatActive: s.chatActive === 'g:' + groupId ? null : s.chatActive,
+      }));
+      syncGroupDeleted(groupId);
+    },
 
     addEvent: (event) => { commit(s => ({ events: [...s.events, event] })); syncEvent(event.id); },
     updateEvent: (id, partial) => { commit(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...partial } : e) })); syncEvent(id); },
